@@ -17,6 +17,7 @@ import {ProtectedRoutes} from '../src/util/ProtectedRoutes'
 import { DashboardProvider } from "./context/dashboard.context";
 import PropertyInterest from "./pages/PropertyInterest"
 import InterestSuccess from "./pages/InterestSuccess"
+import ComingSoonPage from "./pages/ComingSoonPage"
 
 
 function App() {
@@ -41,6 +42,10 @@ function App() {
   {
     path: "/interest-success",
     element: <InterestSuccess />, // guarded by navigation state
+  },
+  {
+    path: "/partnership",
+    element: <ComingSoonPage />, // guarded by navigation state
   },
 
  

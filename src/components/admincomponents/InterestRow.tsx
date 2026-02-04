@@ -6,12 +6,10 @@ import {formatDate} from "../../util/formatDate"
 import { InvestorInterest } from "../../types/investment";
 interface Props {
   interest: InvestorInterest;
-  // onUpdate: React.Dispatch<
-  //   React.SetStateAction<InvestorInterest[]>
-  // >;
+  onUpdate?: (updatedInterest: InvestorInterest) => void;
 }
 
-export const InterestRow = ({ interest}: Props) => (
+export const InterestRow = ({ interest, onUpdate}: Props) => (
 
   <tr className="border-t border-gray-100 p-4">
     <td className="p-4 font-medium">{interest.name}</td>
@@ -30,7 +28,7 @@ export const InterestRow = ({ interest}: Props) => (
     </td>
 
     <td>
-      <InterestActions interest={interest} />
+      <InterestActions interest={interest} onUpdate={onUpdate} />
     </td>
   </tr>
 );

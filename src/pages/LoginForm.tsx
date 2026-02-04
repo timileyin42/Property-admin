@@ -72,10 +72,7 @@ export const LoginForm = () => {
 useEffect(() => {
     if (loading || !user) return;
 
-    const redirectTo =
-      user.role === "ADMIN"
-        ? "/admindashboard"
-        : "/investor/dashboard";
+    const redirectTo = "/admindashboard";
 
     navigate(redirectTo, { replace: true });
   }, [user, loading, navigate]);
@@ -193,9 +190,7 @@ useEffect(() => {
             {isSubmitting ? "Authenticating..." : "Login"}
           </button>
 
-          <p className="text-center text-sm text-gray-600">
-            New to Elycapvest? <Link to="/signup" className="text-blue-900 font-bold">Create Account</Link>
-          </p>
+          <p className="text-center text-sm text-gray-600">Need access? Contact an administrator.</p>
         </form>
       </div>
     </section>

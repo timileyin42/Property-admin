@@ -5,12 +5,10 @@ import { InterestRow } from "./InterestRow";
 
 interface Props {
   data: InvestorInterest[];
-  // onUpdate: React.Dispatch<
-  //   React.SetStateAction<InvestorInterest[]>
-  // >;
+  onUpdate?: (updatedInterest: InvestorInterest) => void;
 }
 
-export const InterestTable = ({ data}: Props) => (
+export const InterestTable = ({ data, onUpdate}: Props) => (
   <div className="hidden md:block overflow-x-auto bg-white rounded-xl shadow">
 
     <table className="min-w-full text-sm">
@@ -28,7 +26,11 @@ export const InterestTable = ({ data}: Props) => (
 
       <tbody>
         {data.map((interest) => (
-          <InterestRow key={interest.id} interest={interest} />
+          <InterestRow
+            key={interest.id}
+            interest={interest}
+            onUpdate={onUpdate}
+          />
         ))}
       </tbody>
     </table>

@@ -28,7 +28,7 @@ adminApi.interceptors.request.use((config) => {
 // -----------------------------
 // FETCHING AUTHENTICATED USERS INTERESTS IN A PROPERTY
 export const fetchInvestorInterests = async (): Promise<InvestorInterest[]> => {
-  const res = await api.get("/admin/inquiries");
+  const res = await api.get("/admin/interests");
   // console.log(res);
   // console.log("ADMIN INQUIRIES RESPONSE:", res.data);
 
@@ -47,7 +47,7 @@ export const fetchInvestorInterests = async (): Promise<InvestorInterest[]> => {
 
 
 export const fetchNonAuthenticatedInterests = async () => {
-  const response = await api.get("/admin/interests");
+  const response = await api.get("/admin/inquiries");
   const interests = response?.data?.inquiries;
 
   console.log("NonAuth API Response:", response.data.inquiries);

@@ -6,18 +6,16 @@ import { InvestorInterest } from "../../types/investment";
 
 interface Props {
   interest: InvestorInterest;
-  // onUpdate: React.Dispatch<
-  //   React.SetStateAction<InvestorInterest[]>
-  // >;
+  onUpdate?: (updatedInterest: InvestorInterest) => void;
 }
-export const InterestCard: React.FC<Props> = ({ interest}: Props) =>{
+export const InterestCard: React.FC<Props> = ({ interest, onUpdate}: Props) =>{
 
 
 return(
   <div className="bg-white p-4 rounded-xl shadow flex flex-col gap-2">
     <div className="flex justify-between items-center">
       <h4 className="font-semibold">{interest.name}</h4>
-      <InterestActions interest={interest} />
+      <InterestActions interest={interest} onUpdate={onUpdate} />
     </div>
 
 
@@ -28,7 +26,7 @@ return(
     </div>
 
     <div className="flex justify-between items-center">
-      <span>Fractions: {"interest.fractions"}</span>
+      <span>Fractions: {interest.fractions ?? "-"}</span>
       <StatusBadge status={interest.status} />
     </div>
   </div>

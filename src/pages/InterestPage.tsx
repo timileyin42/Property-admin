@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
-import { InterestTable } from "../components/admincomponents/InterestTable";
-import { NonAuthInterestTable } from "./nonauthuser/NonAuthInterestTable"; // You'll create this
-import { InterestCard } from "../components/admincomponents/InterestCard";
-import { NonAuthInterestCard } from "./nonauthuser/NonAuthInterestCard"; // You'll create this
-import { InvestorInterest} from "../types/investment";
-import {NonAuthenticatedInterest } from "../types/interest"
 import { fetchInvestorInterests, fetchNonAuthenticatedInterests } from "../api/admin.interests";
+import { InterestCard } from "../components/admincomponents/InterestCard";
+import { InterestTable } from "../components/admincomponents/InterestTable";
+import { InvestorInterest } from "../types/investment";
+import { NonAuthenticatedInterest } from "../types/interest";
+import { formatDate } from "../util/formatDate";
+import { StatusBadge } from "../components/StatusBadge";
 
-type StatusFilter = "ALL" | "NEW" | "PENDING" | "APPROVED" | "REJECTED" | "AVAILABLE" | "ACTIVE" | "CONTACTED";
+const statusOptions = ["ALL", "NEW", "CONTACTED", "CLOSED"] as const;
+
+type StatusFilter = (typeof statusOptions)[number];
 type UserTypeFilter = "authenticated" | "nonAuthenticated";
 
-export const InterestPage: React.FC = () => {
+export const InterestPage = () => {
   const [authenticatedData, setAuthenticatedData] = useState<InvestorInterest[]>([]);
   const [nonAuthenticatedData, setNonAuthenticatedData] = useState<NonAuthenticatedInterest[]>([]);
   const [search, setSearch] = useState("");
@@ -20,31 +22,17 @@ export const InterestPage: React.FC = () => {
   const [userTypeFilter, setUserTypeFilter] = useState<UserTypeFilter>("authenticated");
   const [loading, setLoading] = useState(true);
 
-  // -----------------------------
-  // Fetch data
-  // -----------------------------
   useEffect(() => {
     const loadAllInterests = async () => {
       try {
         setLoading(true);
-        
-        // Fetch both types of data in parallel
-    const [authRes, nonAuthRes] = await Promise.all([
-  fetchInvestorInterests(),
-  fetchNonAuthenticatedInterests()
-]);
+        const [authRes, nonAuthRes] = await Promise.all([
+          fetchInvestorInterests(),
+          fetchNonAuthenticatedInterests(),
+        ]);
 
-const typedAuthData = Array.isArray(authRes) 
-  ? (authRes as InvestorInterest[]) 
-  : [];
-
-const typedNonAuthData = Array.isArray(nonAuthRes)
-  ? (nonAuthRes as NonAuthenticatedInterest[])
-  : [];
-
-
-        setAuthenticatedData(typedAuthData);
-        setNonAuthenticatedData(typedNonAuthData);
+        setAuthenticatedData(Array.isArray(authRes) ? authRes : []);
+        setNonAuthenticatedData(Array.isArray(nonAuthRes) ? nonAuthRes : []);
       } catch (err: any) {
         toast.error(err?.message || "Failed to load interests");
       } finally {
@@ -53,67 +41,41 @@ const typedNonAuthData = Array.isArray(nonAuthRes)
     };
 
     loadAllInterests();
-
   }, []);
 
-console.log("nonAuthRes");
-console.log(nonAuthenticatedData);
-console.log("nonAuthRes");
-  // -----------------------------
-  // Filter authenticated data
-  // -----------------------------
   const filteredAuthenticatedData = useMemo(() => {
     const q = search.trim().toLowerCase();
-
     return authenticatedData.filter((item) => {
       const name = item.name?.toLowerCase() ?? "";
       const property = item.property_title?.toLowerCase() ?? "";
-      const status = item.status?.toUpperCase() ?? "";
+      const status = item.status ?? "";
 
-      const matchesSearch =
-        q === "" || name.includes(q) || property.includes(q);
-
-      const matchesStatus =
-        statusFilter === "ALL" || status === statusFilter;
+      const matchesSearch = q === "" || name.includes(q) || property.includes(q);
+      const matchesStatus = statusFilter === "ALL" || status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
   }, [authenticatedData, search, statusFilter]);
 
-  // -----------------------------
-  // Filter non-authenticated data
-  // -----------------------------
-
   const filteredNonAuthenticatedData = useMemo(() => {
     const q = search.trim().toLowerCase();
-
     return nonAuthenticatedData.filter((item) => {
       const name = item.name?.toLowerCase() ?? "";
       const email = item.email?.toLowerCase() ?? "";
       const property = item.property_title?.toLowerCase() ?? "";
+      const status = item.status ?? "";
 
-      const matchesSearch =
-        q === "" || name.includes(q) || email.includes(q) || property.includes(q);
+      const matchesSearch = q === "" || name.includes(q) || email.includes(q) || property.includes(q);
+      const matchesStatus = statusFilter === "ALL" || status === statusFilter;
 
-      // For non-auth, you might not have status, adjust as needed
-      if (statusFilter === "ALL") return matchesSearch;
-      
-      // If non-auth has status field, filter by it
-      const status = item.status?.toUpperCase() ?? "";
-      const matchesStatus = status === statusFilter;
-      
       return matchesSearch && matchesStatus;
     });
   }, [nonAuthenticatedData, search, statusFilter]);
 
-  // -----------------------------
-  // Get current data based on user type filter
-  // -----------------------------
-  const currentData = useMemo(() => {
-    return userTypeFilter === "authenticated" 
-      ? filteredAuthenticatedData 
-      : filteredNonAuthenticatedData;
-  }, [userTypeFilter, filteredAuthenticatedData, filteredNonAuthenticatedData]);
+  const isAuthenticatedTab = userTypeFilter === "authenticated";
+  const currentDataCount = isAuthenticatedTab
+    ? filteredAuthenticatedData.length
+    : filteredNonAuthenticatedData.length;
 
   if (loading) {
     return (
@@ -127,55 +89,49 @@ console.log("nonAuthRes");
     <div className="bg-white rounded-xl p-6">
       <Toaster position="top-right" />
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-semibold">Interest Received</h2>
+          <h2 className="text-lg font-semibold">Investor Interests</h2>
           <p className="text-sm text-gray-500">
-            Manage investor interest in properties
+            Review authenticated interests and public inquiries
           </p>
         </div>
 
-        {/* Search & Filters */}
-        <div className="flex flex-wrap gap-3">
-          {/* User Type Filter */}
+        <div className="flex flex-wrap gap-3 md:ml-auto">
           <select
             value={userTypeFilter}
             onChange={(e) => setUserTypeFilter(e.target.value as UserTypeFilter)}
             className="bg-gray-100 rounded-lg px-3 py-2 text-sm"
           >
-            <option value="authenticated">Authenticated Users</option>
-            <option value="nonAuthenticated">Non-Authenticated Users</option>
+            <option value="authenticated">Authenticated interests</option>
+            <option value="nonAuthenticated">Public inquiries</option>
           </select>
 
-          {/* Search Input */}
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={
-              userTypeFilter === "authenticated" 
-                ? "Search by name or property..." 
+              isAuthenticatedTab
+                ? "Search by name or property..."
                 : "Search by name, email, or property..."
             }
             className="bg-gray-100 rounded-lg px-3 py-2 text-sm"
           />
 
-          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             className="bg-gray-100 rounded-lg px-3 py-2 text-sm"
           >
-            <option value="ALL">All Status</option>
-            <option value="CONTACTED">CONTACTED</option>
-            <option value="NEW">NEW</option>
-            <option value="CLOSED">CLOSED</option>
-            {/* Add more status options as needed */}
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
-      {/* Statistics Bar */}
       <div className="flex gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
         <div className="text-center">
           <div className="text-lg font-semibold">{authenticatedData.length}</div>
@@ -183,43 +139,86 @@ console.log("nonAuthRes");
         </div>
         <div className="text-center">
           <div className="text-lg font-semibold">{nonAuthenticatedData.length}</div>
-          <div className="text-sm text-gray-500">Non-Authenticated</div>
+          <div className="text-sm text-gray-500">Unauthenticated</div>
         </div>
         <div className="text-center">
           <div className="text-lg font-semibold">{authenticatedData.length + nonAuthenticatedData.length}</div>
-          <div className="text-sm text-gray-500">Total Interests</div>
+          <div className="text-sm text-gray-500">Total</div>
         </div>
       </div>
 
-      {/* Table for Desktop */}
-      {userTypeFilter === "authenticated" ? (
-        <InterestTable data={filteredAuthenticatedData} />
+      {currentDataCount === 0 ? (
+        <div className="text-sm text-gray-500">No interests found.</div>
+      ) : isAuthenticatedTab ? (
+        <>
+          <InterestTable data={filteredAuthenticatedData} onUpdate={() => undefined} />
+          <div className="grid gap-4 md:hidden">
+            {filteredAuthenticatedData.map((interest) => (
+              <InterestCard key={interest.id} interest={interest} onUpdate={() => undefined} />
+            ))}
+          </div>
+        </>
       ) : (
-        <NonAuthInterestTable data={filteredNonAuthenticatedData} />
-      )}
+        <>
+          <div className="hidden md:block overflow-x-auto bg-white rounded-xl shadow">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="p-4 text-left">Name</th>
+                  <th className="text-left">Contact</th>
+                  <th className="text-left">Property</th>
+                  <th className="text-left">Message</th>
+                  <th className="text-left">Date</th>
+                  <th className="text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredNonAuthenticatedData.map((interest) => (
+                  <tr key={interest.id} className="border-t border-gray-100">
+                    <td className="p-4 font-medium">{interest.name}</td>
+                    <td>
+                      <p>{interest.email}</p>
+                      <p className="text-xs text-gray-500">{interest.phone}</p>
+                    </td>
+                    <td>{interest.property_title ?? "-"}</td>
+                    <td className="max-w-xs truncate" title={interest.message}>
+                      {interest.message}
+                    </td>
+                    <td className="text-gray-500">{formatDate(interest.created_at)}</td>
+                    <td>
+                      <StatusBadge status={(interest.status ?? "NEW") as any} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {/* Cards for Mobile */}
-      <div className="md:hidden flex flex-col gap-3 mt-4">
-        {currentData.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center">
-            No {userTypeFilter === "authenticated" ? "authenticated" : "non-authenticated"} interests found.
-          </p>
-        ) : userTypeFilter === "authenticated" ? (
-          filteredAuthenticatedData.map((interest) => (
-            <InterestCard
-              key={interest.id}
-              interest={interest}
-            />
-          ))
-        ) : (
-          filteredNonAuthenticatedData.map((interest) => (
-            <NonAuthInterestCard
-              key={interest.id}
-              interest={interest}
-            />
-          ))
-        )}
-      </div>
+          <div className="grid gap-4 md:hidden">
+            {filteredNonAuthenticatedData.map((interest) => (
+              <div key={interest.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+                <div>
+                  <p className="font-semibold text-blue-900">{interest.name}</p>
+                  <p className="text-xs text-gray-500">{interest.email}</p>
+                  <p className="text-xs text-gray-500">{interest.phone}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Property</p>
+                  <p className="text-sm">{interest.property_title ?? "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Message</p>
+                  <p className="text-sm text-gray-600">{interest.message}</p>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{formatDate(interest.created_at)}</span>
+                  <StatusBadge status={(interest.status ?? "NEW") as any} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
-}
+};

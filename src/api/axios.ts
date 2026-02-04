@@ -1,12 +1,12 @@
 // src/api/axios.ts
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   "https://api.elycapfracprop.com/api";
 
 export const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     Accept: "application/json",
   },
@@ -19,6 +19,7 @@ export const api = axios.create({
 
 const PUBLIC_ROUTES = new Set([
   "/auth/login",
+  "/auth/admin/login",
   "/auth/signup",
   "/auth/forgot-password",
   "/auth/reset-password",

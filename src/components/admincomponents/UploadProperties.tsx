@@ -10,33 +10,7 @@ import { api } from "../../api/axios";
 import { fetchProperties } from "../../api/properties";
 import { updateAdminProperty } from "../../api/admin.properties";
 import { PropertyTable } from "../../components/PropertyTable";
-// Remove this import since it's causing conflicts
-// import type { ApiProperty as ImportedApiProperty, PropertyStatus as ImportedPropertyStatus } from "../../types/property";
-
-// Use your LOCAL types that are already defined in this file
-export type PropertyStatus = "AVAILABLE" | "SOLD" | "PENDING";
-
-export interface ApiProperty {
-  id: number;
-  title: string;
-  location: string;
-  description: string;
-  status: PropertyStatus;
-  image_urls: string[];
-  primary_image: string;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqft: number;
-  expected_roi: number;
-  total_fractions: number;
-  fraction_price: number;
-  project_value: number;
-  fractions_sold: number;
-  fractions_available: number;
-  is_fractional: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import type { ApiProperty } from "../../types/property";
 
 /* =======================
    Schema Definition
@@ -53,7 +27,7 @@ const propertySchema = z.object({
   description: z.string().min(1, "Description is required"),
   project_value: optionalNumber,
   total_fractions: z.coerce
-    .number({ invalid_type_error: "Total fractions is required" })
+    .number()
     .min(1, "Total fractions is required"),
   fraction_price: optionalNumber,
   bedrooms: optionalNumber,
@@ -303,7 +277,7 @@ const AdminInvestmentsPage: React.FC = () => {
     try {
       const payload = {
         ...data,
-        status: "AVAILABLE" as PropertyStatus,
+        status: "AVAILABLE" as ApiProperty["status"],
         image_urls: [] as string[],
         primary_image: "",
       };
@@ -317,7 +291,7 @@ const AdminInvestmentsPage: React.FC = () => {
         const imageUrls = await uploadPromise;
         const retryPayload = {
           ...data,
-          status: "AVAILABLE" as PropertyStatus,
+          status: "AVAILABLE" as ApiProperty["status"],
           image_urls: imageUrls,
           primary_image: imageUrls[0] || "",
         };

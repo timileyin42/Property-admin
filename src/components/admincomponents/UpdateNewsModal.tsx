@@ -5,6 +5,7 @@ import { API_BASE_URL } from "../../api/axios";
 import type { UpdateItem } from "../../types/updates";
 import { createAdminUpdate, updateAdminUpdate } from "../../api/admin.updates";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 interface UpdateNewsModalProps {
   isOpen: boolean;
@@ -25,6 +26,16 @@ const ALLOWED_TYPES = [
   "video/ogg",
   "video/quicktime",
 ];
+
+type UploadSignature = {
+  upload_url: string;
+  api_key: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  resource_type: string;
+  allowed_formats?: string;
+};
 
 const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   isOpen,
@@ -102,7 +113,10 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     };
   }, [previews]);
 
-  const uploadVideoInChunks = async (file: File, sig: any): Promise<string> => {
+  const uploadVideoInChunks = async (
+    file: File,
+    sig: UploadSignature
+  ): Promise<string> => {
     const totalSize = file.size;
     let start = 0;
     let end = Math.min(CHUNK_SIZE, totalSize);
@@ -285,12 +299,12 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
             setMediaUrls((prev) => [...prev, ...updated.media_files?.map((item) => item.url) ?? []]);
             onSuccess(updated);
           })
-          .catch((error: any) => {
-            toast.error(error?.message || "Background upload failed");
+          .catch((error: unknown) => {
+            toast.error(getErrorMessage(error, "Background upload failed"));
           });
       }
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to save update");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to save update"));
     } finally {
       setLoading(false);
     }

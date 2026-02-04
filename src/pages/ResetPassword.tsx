@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams, useLocation} from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../util/getErrorMessage";
 import { HiEye, HiEyeOff } from "react-icons/hi"; // Using HeroIcons from react-icons
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   resetPasswordSchema,
   ResetPasswordValues,
@@ -49,8 +50,8 @@ const ResetPassword = () => {
       });
       toast.success("Password reset successful. Please log in.");
       navigate("/login");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to reset password");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Failed to reset password"));
     }
   };
 

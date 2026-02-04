@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../../util/getErrorMessage";
 import { api } from "../../api/axios";
 import { fetchProperties } from "../../api/properties";
 import { ApiProperty } from "../../types/property";
@@ -21,8 +22,10 @@ const AssignInvestment = () => {
   const [selectedProperty, setSelectedProperty] = useState<ApiProperty | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const resolver: Resolver<AssignInvestmentValues> =
+    zodResolver(assignInvestmentSchema) as Resolver<AssignInvestmentValues>;
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<AssignInvestmentValues>({
-    resolver: zodResolver(assignInvestmentSchema) as any,
+    resolver,
     defaultValues: {
       user_id: userId || 0,
       property_id: 0,
@@ -91,9 +94,9 @@ const AssignInvestment = () => {
       });
       toast.success("Investment assigned successfully");
       navigate("/admindashboard/user_management");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to assign investment:", error);
-      toast.error(error?.response?.data?.message || "Failed to assign investment");
+      toast.error(getErrorMessage(error, "Failed to assign investment"));
     }
   };
 

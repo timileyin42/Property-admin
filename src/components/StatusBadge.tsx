@@ -100,7 +100,7 @@ interface SimpleBadgeProps {
   status: InterestStatus;
 }
 
-export const Interest_StatusBadge: React.FC<SimpleBadgeProps> = ({ status }) => (
+export const InterestStatusBadge: React.FC<SimpleBadgeProps> = ({ status }) => (
   <div>
   <span
     className={`px-3 py-1 rounded-full text-xs  font-medium ${STATUS_STYLES[status]}`}

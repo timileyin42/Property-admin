@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
 import { ApiProperty } from "../../types/property";
@@ -9,6 +9,7 @@ import {
   PropertyStatusFilter,
 } from "../../api/admin.properties";
 import { UpdatePropertyModal } from "../../components/admincomponents/UpdatePropertyModal";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 const STATUS_TABS: Array<"ALL" | PropertyStatusFilter> = [
   "ALL",
@@ -23,7 +24,7 @@ const AdminProperties = () => {
   const [selectedProperty, setSelectedProperty] = useState<ApiProperty | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetchAdminProperties({
@@ -32,20 +33,16 @@ const AdminProperties = () => {
         status: activeStatus === "ALL" ? undefined : activeStatus,
       });
       setProperties(response.properties ?? []);
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to load properties";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to load properties"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeStatus]);
 
   useEffect(() => {
     loadProperties();
-  }, [activeStatus]);
+  }, [loadProperties]);
 
   const handleOpenModal = (property: ApiProperty) => {
     setSelectedProperty(property);
@@ -161,7 +158,7 @@ const AdminProperties = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <StatusBadge status={property.status as any} />
+                      <StatusBadge status={property.status} />
                     </td>
                     <td className="p-4 text-gray-600">{property.location}</td>
                     <td className="p-4 text-right text-gray-600">

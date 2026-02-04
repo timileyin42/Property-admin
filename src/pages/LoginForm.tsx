@@ -4,8 +4,9 @@ import { useNavigate, Link  } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../util/getErrorMessage";
 import { FaRegEye } from "react-icons/fa";
 import { FaRegEyeSlash } from "react-icons/fa";
 import auth_img from "../assets/auth.jpg";
@@ -86,12 +87,8 @@ useEffect(() => {
       });
 
       // toast.success("Welcome back!");
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.detail ||
-          err?.message ||
-          "Invalid credentials"
-      );
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Invalid credentials"));
     }
   };
 

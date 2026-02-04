@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { Resolver, useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
@@ -11,6 +11,7 @@ import { fetchProperties } from "../../api/properties";
 import { updateAdminProperty } from "../../api/admin.properties";
 import { PropertyTable } from "../../components/PropertyTable";
 import type { ApiProperty } from "../../types/property";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 /* =======================
    Schema Definition
@@ -36,18 +37,17 @@ const propertySchema = z.object({
   expected_roi: optionalNumber,
 });
 
-// Explicitly define the type to match the schema
-type PropertyFormValues = {
-  title: string;
-  location: string;
-  description: string;
-  project_value?: number;
-  total_fractions: number;
-  fraction_price?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  area_sqft?: number;
-  expected_roi?: number;
+type PropertyFormValues = z.infer<typeof propertySchema>;
+
+type UploadSignature = {
+  upload_url: string;
+  api_key: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  resource_type: string;
+  allowed_formats?: string;
+  chunk_size?: number;
 };
 
 /* =======================
@@ -78,13 +78,15 @@ const AdminInvestmentsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const resolver: Resolver<PropertyFormValues> =
+    zodResolver(propertySchema) as Resolver<PropertyFormValues>;
   const { 
     register, 
     handleSubmit, 
     reset, 
     formState: { errors } 
   } = useForm<PropertyFormValues>({
-    resolver: zodResolver(propertySchema) as any, // Type assertion to fix the resolver issue
+    resolver,
     defaultValues: {
       title: "",
       location: "",
@@ -163,7 +165,7 @@ const AdminInvestmentsPage: React.FC = () => {
 
     const uploadVideoInChunks = async (
       file: File,
-      sig: any
+      sig: UploadSignature
     ): Promise<string> => {
       const totalSize = file.size;
       let start = 0;
@@ -286,7 +288,7 @@ const AdminInvestmentsPage: React.FC = () => {
 
       try {
         res = await api.post<ApiProperty>("/admin/properties", payload);
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         // Fallback to blocking upload if server requires images on create
         const imageUrls = await uploadPromise;
         const retryPayload = {
@@ -328,13 +330,13 @@ const AdminInvestmentsPage: React.FC = () => {
         setFiles([]);
         previews.forEach((p) => URL.revokeObjectURL(p.url));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (err.response?.status === 401) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
         toast.error("Please login as admin to upload media");
         return;
       }
-      toast.error(err.response?.data?.message || "Failed to create property");
+      toast.error(getErrorMessage(err, "Failed to create property"));
     } finally {
       setIsSubmitting(false);
     }
@@ -470,7 +472,7 @@ const AdminInvestmentsPage: React.FC = () => {
 
       {/* Type assertion for PropertyTable to handle the type mismatch */}
       <PropertyTable 
-        properties={properties as any} 
+        properties={properties} 
         loading={loadingProperties} 
       />
     </div>

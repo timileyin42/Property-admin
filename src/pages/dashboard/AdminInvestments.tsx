@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 import { fetchAdminInvestments } from "../../api/admin.investments";
 import { UpdateValuationModal } from "../../components/admincomponents/UpdateValuationModal";
@@ -17,12 +18,8 @@ const AdminInvestments = () => {
     try {
       const data = await fetchAdminInvestments();
       setInvestments(data);
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to load investments";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to load investments"));
     } finally {
       setLoading(false);
     }

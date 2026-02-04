@@ -4,12 +4,24 @@ import toast, { Toaster } from "react-hot-toast";
 import { fetchInvestorInterests, fetchNonAuthenticatedInterests } from "../api/admin.interests";
 import { InterestCard } from "../components/admincomponents/InterestCard";
 import { InterestTable } from "../components/admincomponents/InterestTable";
-import { InvestorInterest } from "../types/investment";
+import { InterestStatus, InvestorInterest } from "../types/investment";
 import { NonAuthenticatedInterest } from "../types/interest";
 import { formatDate } from "../util/formatDate";
 import { StatusBadge } from "../components/StatusBadge";
+import { getErrorMessage } from "../util/getErrorMessage";
 
 const statusOptions = ["ALL", "NEW", "CONTACTED", "CLOSED"] as const;
+const interestStatuses: InterestStatus[] = [
+  "NEW",
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "ACTIVE",
+  "SOLD",
+  "AVAILABLE",
+  "CONTACTED",
+  "CLOSED",
+];
 
 type StatusFilter = (typeof statusOptions)[number];
 type UserTypeFilter = "authenticated" | "nonAuthenticated";
@@ -33,8 +45,8 @@ export const InterestPage = () => {
 
         setAuthenticatedData(Array.isArray(authRes) ? authRes : []);
         setNonAuthenticatedData(Array.isArray(nonAuthRes) ? nonAuthRes : []);
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to load interests");
+      } catch (err: unknown) {
+        toast.error(getErrorMessage(err, "Failed to load interests"));
       } finally {
         setLoading(false);
       }
@@ -186,7 +198,7 @@ export const InterestPage = () => {
                     </td>
                     <td className="text-gray-500">{formatDate(interest.created_at)}</td>
                     <td>
-                      <StatusBadge status={(interest.status ?? "NEW") as any} />
+                      <StatusBadge status={resolveStatus(interest.status)} />
                     </td>
                   </tr>
                 ))}
@@ -212,7 +224,7 @@ export const InterestPage = () => {
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>{formatDate(interest.created_at)}</span>
-                  <StatusBadge status={(interest.status ?? "NEW") as any} />
+                  <StatusBadge status={resolveStatus(interest.status)} />
                 </div>
               </div>
             ))}
@@ -222,3 +234,8 @@ export const InterestPage = () => {
     </div>
   );
 };
+
+const resolveStatus = (status?: string): InterestStatus =>
+  interestStatuses.includes(status as InterestStatus)
+    ? (status as InterestStatus)
+    : "NEW";

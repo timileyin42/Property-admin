@@ -9,6 +9,7 @@ import {
   updateAdminProperty,
 } from "../../api/admin.properties";
 import { normalizeMediaUrl, isVideoUrl } from "../../util/normalizeMediaUrl";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 interface UpdatePropertyModalProps {
   isOpen: boolean;
@@ -34,6 +35,16 @@ const ALLOWED_TYPES = [
   "video/ogg",
   "video/quicktime",
 ];
+
+type UploadSignature = {
+  upload_url: string;
+  api_key: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  resource_type: string;
+  allowed_formats?: string;
+};
 
 const toNumberOrUndefined = (value: string) => {
   if (!value.trim()) return undefined;
@@ -90,7 +101,10 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     setMediaUrls((prev) => prev.filter((item) => item !== url));
   };
 
-  const uploadVideoInChunks = async (file: File, sig: any): Promise<string> => {
+  const uploadVideoInChunks = async (
+    file: File,
+    sig: UploadSignature
+  ): Promise<string> => {
     const totalSize = file.size;
     let start = 0;
     let end = Math.min(CHUNK_SIZE, totalSize);
@@ -207,12 +221,8 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         setMediaUrls((prev) => [...prev, ...uploadedUrls]);
         toast.success("Media uploaded");
       }
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to upload media";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to upload media"));
     } finally {
       setLoading(false);
       if (fileInputRef.current) {
@@ -251,12 +261,8 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       toast.success("Property updated successfully");
       onUpdate(updated);
       onClose();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to update property";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update property"));
     } finally {
       setLoading(false);
     }

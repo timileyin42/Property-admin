@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../../util/getErrorMessage";
 import { Investment } from "../../types/investment";
 import { updateInvestmentValuation } from "../../api/admin.investments";
 
@@ -53,12 +54,8 @@ export const UpdateValuationModal = ({
       onUpdate(updatedInvestment);
       toast.success("Valuation updated");
       onClose();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to update valuation";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update valuation"));
     } finally {
       setLoading(false);
     }

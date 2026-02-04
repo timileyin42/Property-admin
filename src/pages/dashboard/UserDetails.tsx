@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast, { Toaster } from "react-hot-toast";
 import { fetchAdminUser, updateAdminUser } from "../../api/admin.users.api";
@@ -13,12 +13,13 @@ const UserDetails = () => {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const resolver: Resolver<AdminUserUpdateValues> = zodResolver(adminUserUpdateSchema);
   const {
     register,
     reset,
     formState: { errors },
   } = useForm<AdminUserUpdateValues>({
-    resolver: zodResolver(adminUserUpdateSchema) as any,
+    resolver,
     defaultValues: {
       full_name: "",
       email: "",

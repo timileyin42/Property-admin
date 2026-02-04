@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../util/getErrorMessage";
 import { useNavigate } from "react-router-dom";
-import {useAuth} from "../context/AuthContext"
+import { useAuth } from "../context/useAuth";
 
 
 const ForgotPassword = () => {
@@ -29,11 +30,9 @@ const ForgotPassword = () => {
       state: { email },
       replace: true,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.log(err);
-    toast.error(
-      err?.data?.detail || "Something went wrong"
-    );
+    toast.error(getErrorMessage(err, "Something went wrong"));
   } finally {
     setLoading(false);
   }
@@ -43,9 +42,9 @@ const ForgotPassword = () => {
     <div className="min-h-screen flex  flex-col items-center justify-center bg-gray-50 px-4">
       <div className="flex items-center gap-2 mb-6">
         <Toaster />
-          <div className="bg-blue-900 text-white p-2 rounded-md">
+            <div className="bg-blue-900 text-white p-2 rounded-md">
             
-          </div>
+            </div>
           <h1 className="text-xl font-bold text-blue-900">
             Elycapvest
           </h1>
@@ -73,8 +72,6 @@ const ForgotPassword = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={email}
-                className="w-full text-gray-900 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-900 focus:outline-none"
               />
             </div>
           </div>

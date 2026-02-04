@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useCallback, useState, useEffect } from "react";
 import { api } from "../api/axios";
 import { SignupPayload, SigninPayload, User } from "../types/auth.types";
 
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [access_token, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUser = async (token: string) => {
+  const fetchUser = useCallback(async (token: string) => {
     try {
       const { data } = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // 🔁 Restore auth on app load
   useEffect(() => {
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [fetchUser]);
 
   const signin = async (payload: SigninPayload) => {
     const formData = new URLSearchParams();
@@ -187,8 +187,3 @@ const confirmResetPassword = async (payload: {
 };
 
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
-};

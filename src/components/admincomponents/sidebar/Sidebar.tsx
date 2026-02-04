@@ -3,7 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import { sidebarItems } from "./SidebarConfig";
 import BuildingIcon from "../../svgs/BuildingIcon"
 import {LogoutIcon} from "../../svgs/ShieldIcon"
-import {useAuth} from "../../../context/AuthContext";
+import { useAuth } from "../../../context/useAuth";
 
 
 

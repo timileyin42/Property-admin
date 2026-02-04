@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { fetchUpdates } from "../../api/updates";
 import type { UpdateItem } from "../../types/updates";
 import UpdateNewsModal from "../../components/admincomponents/UpdateNewsModal";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
+import { getErrorMessage } from "../../util/getErrorMessage";
 
 const AdminUpdates = () => {
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
@@ -11,21 +12,21 @@ const AdminUpdates = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<UpdateItem | null>(null);
 
-  const loadUpdates = async () => {
+  const loadUpdates = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetchUpdates({ page: 1, page_size: 50 });
       setUpdates(res.updates ?? []);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to load updates");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to load updates"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadUpdates();
-  }, []);
+  }, [loadUpdates]);
 
   const handleOpen = (update?: UpdateItem) => {
     setSelectedUpdate(update ?? null);

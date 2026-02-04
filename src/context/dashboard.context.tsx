@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useState } from "react";
 import { api } from "../api/axios";
 
 
@@ -28,7 +28,7 @@ export interface PortfolioStat {
 }
 
 
-const DashboardContext = createContext<DashboardContextType | undefined>(
+export const DashboardContext = createContext<DashboardContextType | undefined>(
   undefined
 );
 
@@ -40,7 +40,7 @@ export const DashboardProvider = ({
   const [stats, setStats] = useState<PortfolioStat[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -79,11 +79,11 @@ export const DashboardProvider = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   return (
     <DashboardContext.Provider
@@ -94,9 +94,3 @@ export const DashboardProvider = ({
   );
 };
 
-export const useDashboard = () => {
-  const ctx = useContext(DashboardContext);
-  if (!ctx)
-    throw new Error("useDashboard must be used inside DashboardProvider");
-  return ctx;
-};

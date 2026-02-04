@@ -5,7 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { contactSchema, ContactFormValues } from "../validators/contact.schema";
 import { api } from "../api/axios";
 import toast, { Toaster } from "react-hot-toast";
-import { useAuth } from "../context/AuthContext";
+import { getErrorMessage } from "../util/getErrorMessage";
+import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
 import { InterestSuccessData } from "../types/interest";
 import { ApiProperty } from "../types/property";
@@ -119,14 +120,10 @@ const InterestForm: React.FC<InterestFormProps> = ({ property }) => {
         // Optionally show login prompt or redirect
         // navigate("/thank-you");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Reset idempotency key on error
       idempotencyKeyRef.current = uuidv4();
-      
-      const errorMessage = err?.response?.data?.message || 
-                          err?.message || 
-                          "Something went wrong. Please try again.";
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(err, "Something went wrong. Please try again."));
     }
   };
 

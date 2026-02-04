@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { updateInvestorInterest } from "../../api/admin.interests";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../../util/getErrorMessage";
 import { InvestorInterest, InterestStatus } from "../../types/investment";
 
 interface UpdateInterestModalProps {
@@ -53,11 +54,8 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
       toast.success("Interest updated successfully");
       onUpdate(updatedInterest);
       onClose();
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 
-                          error?.message || 
-                          "Failed to update interest";
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update interest"));
     } finally {
       setLoading(false);
     }

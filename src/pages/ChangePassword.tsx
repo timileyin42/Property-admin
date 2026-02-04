@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
+import { getErrorMessage } from "../util/getErrorMessage";
 import { z } from "zod";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 /* -------------------------------------------------------------------------- */
 /*                               ZOD SCHEMA                                   */
@@ -103,9 +104,9 @@ const ChangePassword = () => {
 
       toast.success(data.message || "Password reset successful");
       navigate("/login", { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log(error);
-      toast.error(error?.response?.data?.detail || error.message || "An unexpected error occurred");
+      toast.error(getErrorMessage(error, "An unexpected error occurred"));
     } finally {
       setLoading(false);
     }

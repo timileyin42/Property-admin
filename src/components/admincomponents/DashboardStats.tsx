@@ -1,4 +1,4 @@
-import { useDashboard } from "../../context/dashboard.context";
+import { useDashboard } from "../../context/useDashboard";
 const DashboardStats = () => {
   const { stats, loading } = useDashboard();
 

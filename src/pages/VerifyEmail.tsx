@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { useAuth } from "../context/AuthContext";
+import { getErrorMessage } from "../util/getErrorMessage";
+import { useAuth } from "../context/useAuth";
 import { useCooldown } from "../hooks/useCooldown";
 
 export const VerifyEmail = () => {
@@ -75,10 +76,8 @@ export const VerifyEmail = () => {
       await verifyEmail({ email, code }); // ✅ no unused variable
       toast.success("Email verified successfully!");
       navigate("/investor/dashboard");
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.detail || "Invalid or expired code"
-      );
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Invalid or expired code"));
     }
   };
 
@@ -100,10 +99,8 @@ export const VerifyEmail = () => {
       await resendOtp({email});
       toast.success("Verification code resent");
       start();
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.detail || "Failed to resend code"
-      );
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to resend code"));
     }
   };
 

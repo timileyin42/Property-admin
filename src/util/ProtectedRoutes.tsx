@@ -1,5 +1,5 @@
 import { Outlet, Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 interface ProtectedProps {
   allowedRole?: "USER" | "INVESTOR" | "ADMIN" | "PROPERTY_OWNER";

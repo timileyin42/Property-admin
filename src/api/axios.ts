@@ -19,7 +19,7 @@ export const api = axios.create({
 
 const PUBLIC_ROUTES = new Set([
   "/auth/login",
-  "/auth/admin/login",
+  "/admin/login",
   "/auth/signup",
   "/auth/forgot-password",
   "/auth/reset-password",
@@ -49,7 +49,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (res) => res,
-  (error: AxiosError<any>) => {
+  (error: AxiosError<unknown>) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       if (typeof window !== "undefined") {

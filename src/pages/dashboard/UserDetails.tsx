@@ -52,6 +52,7 @@ const UserDetails = () => {
     loadUser();
   }, [id, reset]);
 
+
   const onSubmit = async (values: AdminUserUpdateValues) => {
     if (!id) return;
 
@@ -91,6 +92,7 @@ const UserDetails = () => {
   if (!user) {
     return <p className="text-center py-10">User not found.</p>;
   }
+
 
   return (
     <div className="mx-auto px-4">
@@ -165,6 +167,7 @@ const UserDetails = () => {
             </button>
           </div>
         </div>
+
       </section>
     </div>
   );

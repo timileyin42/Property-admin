@@ -1,5 +1,5 @@
 
-export type UserRole = "PUBLIC" | "INVESTOR" | "ADMIN" | "PROPERTY_OWNER";
+export type UserRole = "PUBLIC" | "USER" | "INVESTOR" | "ADMIN" | "PROPERTY_OWNER";
 
 
 export interface User {

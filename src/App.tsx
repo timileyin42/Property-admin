@@ -12,6 +12,7 @@ import AdminProperties from "./pages/dashboard/AdminProperties";
 import AdminUpdates from "./pages/dashboard/AdminUpdates";
 import AssignInvestment from "./pages/dashboard/AssignInvestment";
 import UserDetails from "./pages/dashboard/UserDetails";
+import AdminInvestments from "./pages/dashboard/AdminInvestments";
 import { ProtectedRoutes } from "./util/ProtectedRoutes";
 import { DashboardProvider } from "./context/dashboard.context";
 
@@ -38,6 +39,7 @@ function App() {
             { path: "uploadproperties", element: <UploadProperties /> },
             { path: "properties", element: <AdminProperties /> },
             { path: "updates", element: <AdminUpdates /> },
+            { path: "investments", element: <AdminInvestments /> },
             { path: "user_management", element: <UserManagement /> },
             { path: "assign-investment", element: <AssignInvestment /> },
             { path: "users/:id", element: <UserDetails /> },

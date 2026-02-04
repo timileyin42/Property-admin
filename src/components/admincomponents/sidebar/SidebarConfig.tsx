@@ -39,6 +39,11 @@ export const sidebarItems: SidebarItem[] = [
     icon: <InterestIcon />
   },
   {
+    label: "Investments",
+    path: "investments",
+    icon: <BuildingIcon size={20} color="white" />
+  },
+  {
     label: "User Management",
     path: "user_management",
     icon: <UsersIcon />

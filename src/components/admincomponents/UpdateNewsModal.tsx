@@ -27,6 +27,17 @@ const ALLOWED_TYPES = [
   "video/quicktime",
 ];
 
+const dedupeUrls = (urls: Array<string | null | undefined>) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  urls.forEach((url) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    result.push(url);
+  });
+  return result;
+};
+
 type UploadSignature = {
   upload_url: string;
   api_key: string;
@@ -64,13 +75,15 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     setTitle(update.title ?? "");
     setContent(update.content ?? "");
     const mediaFromFiles = update.media_files?.map((item) => item.url) ?? [];
-    setMediaUrls([
-      ...mediaFromFiles,
-      ...(update.media_urls ?? []),
-      ...(update.image_urls ?? []),
-      update.image_url,
-      update.video_url,
-    ].filter(Boolean) as string[]);
+    setMediaUrls(
+      dedupeUrls([
+        ...mediaFromFiles,
+        ...(update.media_urls ?? []),
+        ...(update.image_urls ?? []),
+        update.image_url,
+        update.video_url,
+      ])
+    );
     setPropertyId(update.property_id ? String(update.property_id) : "");
   }, [update]);
 
@@ -229,6 +242,8 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
         combinedUrls = [...combinedUrls, ...uploadedUrls];
       }
 
+      combinedUrls = dedupeUrls(combinedUrls);
+
       const combinedNormalized = combinedUrls
         .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
         .filter((item) => Boolean(item.normalized));
@@ -257,7 +272,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
 
       toast.success(update ? "Update saved" : "Update created");
       setPendingFiles([]);
-      setMediaUrls(combinedUrls);
+      setMediaUrls(dedupeUrls(combinedUrls));
       onSuccess(result);
       onClose();
     } catch (error: unknown) {
@@ -370,7 +385,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
                       ))}
                     </div>
                   )}
-                  {normalizedMedia.length === 0 ? (
+                  {previews.length === 0 && normalizedMedia.length === 0 ? (
                     <p className="text-sm text-gray-500">No media uploaded.</p>
                   ) : (
                     normalizedMedia.map(({ raw, normalized }) => (

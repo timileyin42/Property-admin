@@ -255,7 +255,7 @@ export const InterestPage = () => {
                       <p className="text-xs text-gray-500">{interest.phone}</p>
                     </td>
                     <td>{interest.property_title ?? "-"}</td>
-                    <td className="max-w-xs truncate" title={interest.message}>
+                    <td className="max-w-xs truncate" title={interest.message ?? ""}>
                       {interest.message}
                     </td>
                     <td className="text-gray-500">{formatDate(interest.created_at)}</td>

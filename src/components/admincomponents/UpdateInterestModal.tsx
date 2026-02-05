@@ -14,9 +14,6 @@ interface UpdateInterestModalProps {
   onUpdate: (updatedInterest: InvestorInterest) => void;
 }
 
-const STATUS_OPTIONS: InterestStatus[] = ["CONTACTED", "CLOSED"];
-
-
 export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
   isOpen,
   onClose,

@@ -13,6 +13,53 @@ interface UpdateDetailModalProps {
 
 const DEFAULT_PAGE_SIZE = 50;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isUpdateCommentArray = (value: unknown): value is UpdateComment[] =>
+  Array.isArray(value);
+
+const readNumber = (value: unknown): number | undefined =>
+  typeof value === "number" ? value : undefined;
+
+const resolveComments = (response: unknown): { comments: UpdateComment[]; total: number } => {
+  if (!isRecord(response)) {
+    return { comments: [], total: 0 };
+  }
+
+  const directComments = response.comments;
+  if (isUpdateCommentArray(directComments)) {
+    return {
+      comments: directComments,
+      total: readNumber(response.total) ?? directComments.length,
+    };
+  }
+
+  if (isRecord(directComments)) {
+    const nestedComments = isUpdateCommentArray(directComments.comments)
+      ? directComments.comments
+      : isUpdateCommentArray(directComments.data)
+        ? directComments.data
+        : [];
+    return {
+      comments: nestedComments,
+      total:
+        readNumber(response.total) ?? readNumber(directComments.total) ?? nestedComments.length,
+    };
+  }
+
+  const updateValue = response.update;
+  if (isRecord(updateValue) && isUpdateCommentArray(updateValue.comments)) {
+    const fallbackComments = updateValue.comments;
+    return {
+      comments: fallbackComments,
+      total: readNumber(response.total) ?? fallbackComments.length,
+    };
+  }
+
+  return { comments: [], total: 0 };
+};
+
 export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailModalProps) => {
   const [loading, setLoading] = useState(false);
   const [update, setUpdate] = useState<UpdateItem | null>(null);
@@ -32,22 +79,7 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
           page_size: pageSize,
         });
         setUpdate(res.update);
-        const resolvedComments =
-          Array.isArray(res.comments)
-            ? res.comments
-            : Array.isArray((res as any)?.comments?.comments)
-              ? (res as any).comments.comments
-              : Array.isArray((res as any)?.comments?.data)
-                ? (res as any).comments.data
-                : Array.isArray((res as any)?.update?.comments)
-                  ? (res as any).update.comments
-                  : [];
-        const resolvedTotal =
-          typeof res.total === "number"
-            ? res.total
-            : typeof (res as any)?.comments?.total === "number"
-              ? (res as any).comments.total
-              : resolvedComments.length;
+        const { comments: resolvedComments, total: resolvedTotal } = resolveComments(res);
         setComments(resolvedComments);
         setTotal(resolvedTotal);
       } catch (error: unknown) {

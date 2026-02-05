@@ -23,9 +23,9 @@ export type NonAuthenticatedInterest = {
   name: string;
   email: string;
   phone: string;
-  message: string;
+  message: string | null;
   property_id: number;
   property_title?: string;
-  created_at: string;
+  created_at?: string;
   status?: string; // Optional if you want to track status
 };

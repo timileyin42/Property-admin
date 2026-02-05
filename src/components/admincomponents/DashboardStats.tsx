@@ -26,7 +26,9 @@ const DashboardStats = () => {
               >
                 {item.value}
               </p>
-              <p className="text-gray-400 text-sm">{item.description}</p>
+              {item.description ? (
+                <p className="text-gray-400 text-sm">{item.description}</p>
+              ) : null}
             </div>
           </div>
         );

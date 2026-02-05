@@ -59,7 +59,7 @@ export const DashboardProvider = ({
           id: 2,
           title: "Active Properties",
           value: data.active_properties,
-          description: data.properties_growth,
+          description: "",
         },
         {
           id: 3,

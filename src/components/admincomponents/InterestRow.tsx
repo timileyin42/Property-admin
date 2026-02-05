@@ -6,13 +6,29 @@ import {formatDate} from "../../util/formatDate"
 import { InvestorInterest } from "../../types/investment";
 interface Props {
   interest: InvestorInterest;
+  isSelected: boolean;
+  onToggleSelect: () => void;
   onUpdate?: (updatedInterest: InvestorInterest) => void;
   onDelete?: (deletedId: number) => void;
 }
 
-export const InterestRow = ({ interest, onUpdate, onDelete}: Props) => (
+export const InterestRow = ({
+  interest,
+  isSelected,
+  onToggleSelect,
+  onUpdate,
+  onDelete,
+}: Props) => (
 
   <tr className="border-t border-gray-100 p-4">
+    <td className="p-4">
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={onToggleSelect}
+        aria-label={`Select ${interest.name}`}
+      />
+    </td>
     <td className="p-4 font-medium">{interest.name}</td>
 
     <td>

@@ -9,6 +9,8 @@ import toast, {Toaster} from "react-hot-toast"
 // import AvailableProperties from "../investorsData/AvailableProperties";
 // import {fetchAdminUsers} from "../../api/fetchAdminUsers"
 import {UsersTable} from "../../components/admincomponents/usersTable/UserTable"
+import { deleteUsersBulk } from "../../api/admin.users.api";
+import { getErrorMessage } from "../../util/getErrorMessage";
 import { useUsers } from "../../components/features/users/useUsers";
 import { useDashboard } from "../../context/useDashboard";
 
@@ -26,6 +28,9 @@ const UserManagement = () => {
   const [roleFilter, setRoleFilter] = useState<
     "ALL" | "ADMIN" | "INVESTOR" | "PUBLIC" | "USER"
   >("ALL");
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
 
   const roleParam = roleFilter === "ALL" ? undefined : roleFilter.toLowerCase();
   const { users, loading, error, reload } = useUsers({
@@ -53,6 +58,53 @@ const filteredUsers = useMemo(() => {
     return matchesSearch;
   });
 }, [users, search]);
+
+  const allUsersSelected =
+    filteredUsers.length > 0 && filteredUsers.every((user) => selectedUserIds.includes(user.id));
+  const someUsersSelected =
+    filteredUsers.some((user) => selectedUserIds.includes(user.id)) && !allUsersSelected;
+
+  const toggleUserSelection = (id: number) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const toggleUserSelectAll = () => {
+    if (allUsersSelected) {
+      setSelectedUserIds([]);
+      return;
+    }
+    setSelectedUserIds(filteredUsers.map((user) => user.id));
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedUserIds.length === 0) return;
+    setDeleteTargetIds(selectedUserIds);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTargetIds([]);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteTargetIds.length === 0) return;
+    try {
+      setIsDeleting(true);
+      const result = await deleteUsersBulk(deleteTargetIds);
+      toast.success(`Deleted ${result.deleted_count} users`);
+      if (result.missing_ids.length > 0) {
+        toast.error(`Missing users: ${result.missing_ids.join(", ")}`);
+      }
+      setSelectedUserIds([]);
+      setDeleteTargetIds([]);
+      reload();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete users"));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
 // fetching users details 
 
@@ -116,13 +168,66 @@ const filteredUsers = useMemo(() => {
   </select>
 </div>
 
+{selectedUserIds.length > 0 && (
+  <div className="flex justify-end mb-4">
+    <button
+      type="button"
+      onClick={handleBulkDelete}
+      className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+      disabled={isDeleting}
+    >
+      Delete selected ({selectedUserIds.length})
+    </button>
+  </div>
+)}
 
-        <UsersTable users={filteredUsers} onRefresh={reload} />
+        <UsersTable
+          users={filteredUsers}
+          onRefresh={reload}
+          selectedIds={selectedUserIds}
+          allSelected={allUsersSelected}
+          someSelected={someUsersSelected}
+          onToggleSelect={toggleUserSelection}
+          onToggleSelectAll={toggleUserSelectAll}
+        />
       </section>
 
       {/* ===== AVAILABLE PROPERTIES / STATS ===== */}
 
       
+      {deleteTargetIds.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">
+                Delete users
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete {deleteTargetIds.length} users? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

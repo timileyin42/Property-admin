@@ -110,6 +110,16 @@ export const deleteUser = async (userId: number): Promise<void> => {
   await api.delete(`/admin/users/${userId}`);
 };
 
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  missing_ids: number[];
+}
+
+export const deleteUsersBulk = async (ids: number[]): Promise<BulkDeleteResponse> => {
+  const res = await api.delete("/admin/users", { data: { ids } });
+  return res.data;
+};
+
 export const resetUserPassword = async (userId: number): Promise<void> => {
   await api.post(`/admin/users/${userId}/reset-password`);
 };

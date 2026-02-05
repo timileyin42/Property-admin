@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { fetchAdminUpdateDetail } from "../../api/admin.updates";
+import { deleteAdminUpdateCommentsBulk } from "../../api/updates";
 import type { AdminUpdateDetailResponse, UpdateComment, UpdateItem } from "../../types/updates";
 import { getErrorMessage } from "../../util/getErrorMessage";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
@@ -67,6 +68,9 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
   const [page, setPage] = useState(1);
   const [pageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<number[]>([]);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
+  const [isDeletingComments, setIsDeletingComments] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !updateId) return;
@@ -98,8 +102,59 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
       setComments([]);
       setTotal(0);
       setPage(1);
+      setSelectedCommentIds([]);
+      setDeleteTargetIds([]);
+      setIsDeletingComments(false);
     }
   }, [isOpen]);
+
+  const allCommentsSelected =
+    comments.length > 0 && comments.every((comment) => selectedCommentIds.includes(comment.id));
+  const someCommentsSelected =
+    comments.some((comment) => selectedCommentIds.includes(comment.id)) && !allCommentsSelected;
+
+  const toggleCommentSelection = (id: number) => {
+    setSelectedCommentIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const toggleCommentSelectAll = () => {
+    if (allCommentsSelected) {
+      setSelectedCommentIds([]);
+      return;
+    }
+    setSelectedCommentIds(comments.map((comment) => comment.id));
+  };
+
+  const handleBulkDeleteComments = () => {
+    if (selectedCommentIds.length === 0) return;
+    setDeleteTargetIds(selectedCommentIds);
+  };
+
+  const handleCancelDeleteComments = () => {
+    setDeleteTargetIds([]);
+  };
+
+  const handleConfirmDeleteComments = async () => {
+    if (deleteTargetIds.length === 0) return;
+    try {
+      setIsDeletingComments(true);
+      const result = await deleteAdminUpdateCommentsBulk(deleteTargetIds);
+      setComments((prev) => prev.filter((comment) => !deleteTargetIds.includes(comment.id)));
+      setSelectedCommentIds([]);
+      setDeleteTargetIds([]);
+      setTotal((prev) => Math.max(prev - result.deleted_count, 0));
+      toast.success(`Deleted ${result.deleted_count} comments`);
+      if (result.missing_ids.length > 0) {
+        toast.error(`Missing comments: ${result.missing_ids.join(", ")}`);
+      }
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete comments"));
+    } finally {
+      setIsDeletingComments(false);
+    }
+  };
 
   const mediaUrls = useMemo(() => {
     if (!update) return [] as string[];
@@ -168,10 +223,35 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h5 className="font-semibold text-gray-900">Comments</h5>
-                  <span className="text-xs text-gray-500">
-                    {total > 0 ? `${total} total` : "No comments"}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={allCommentsSelected}
+                      onChange={toggleCommentSelectAll}
+                      aria-label="Select all comments"
+                      ref={(node) => {
+                        if (node) {
+                          node.indeterminate = someCommentsSelected && !allCommentsSelected;
+                        }
+                      }}
+                    />
+                    <h5 className="font-semibold text-gray-900">Comments</h5>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {selectedCommentIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleBulkDeleteComments}
+                        className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
+                        disabled={isDeletingComments}
+                      >
+                        Delete selected ({selectedCommentIds.length})
+                      </button>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      {total > 0 ? `${total} total` : "No comments"}
+                    </span>
+                  </div>
                 </div>
 
                 {comments.length === 0 ? (
@@ -181,7 +261,15 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
                     {(Array.isArray(comments) ? comments : []).map((comment) => (
                       <div key={comment.id} className="border border-gray-200 rounded-lg p-3">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900">{comment.user_name}</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedCommentIds.includes(comment.id)}
+                              onChange={() => toggleCommentSelection(comment.id)}
+                              aria-label={`Select comment by ${comment.user_name}`}
+                            />
+                            <p className="text-sm font-medium text-gray-900">{comment.user_name}</p>
+                          </div>
                           <span className="text-xs text-gray-400">
                             {new Date(comment.created_at).toLocaleDateString()}
                           </span>
@@ -209,6 +297,38 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
           )}
         </div>
       </div>
+
+      {deleteTargetIds.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">Delete comments</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete {deleteTargetIds.length} comments? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDeleteComments}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isDeletingComments}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteComments}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeletingComments}
+                >
+                  {isDeletingComments ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
-import { deleteInquiry, fetchInvestorInterests, fetchNonAuthenticatedInterests } from "../api/admin.interests";
+import {
+  deleteInquiry,
+  deleteInquiriesBulk,
+  fetchInvestorInterests,
+  fetchNonAuthenticatedInterests,
+} from "../api/admin.interests";
 import { InterestCard } from "../components/admincomponents/InterestCard";
 import { InterestTable } from "../components/admincomponents/InterestTable";
 import { InterestActions } from "../components/admincomponents/InterestActions";
@@ -34,10 +39,13 @@ export const InterestPage = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [userTypeFilter, setUserTypeFilter] = useState<UserTypeFilter>("authenticated");
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<
-    { id: number; type: "authenticated" | "public" } | null
+    { ids: number[]; type: "authenticated" | "public" } | null
   >(null);
+  const [selectedAuthenticatedIds, setSelectedAuthenticatedIds] = useState<number[]>([]);
+  const [selectedPublicIds, setSelectedPublicIds] = useState<number[]>([]);
+  const selectAllPublicRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const loadAllInterests = async () => {
@@ -94,12 +102,42 @@ export const InterestPage = () => {
     ? filteredAuthenticatedData.length
     : filteredNonAuthenticatedData.length;
 
+  const allAuthenticatedSelected =
+    filteredAuthenticatedData.length > 0 &&
+    filteredAuthenticatedData.every((item) => selectedAuthenticatedIds.includes(item.id));
+  const someAuthenticatedSelected =
+    filteredAuthenticatedData.some((item) => selectedAuthenticatedIds.includes(item.id)) &&
+    !allAuthenticatedSelected;
+
+  const allPublicSelected =
+    filteredNonAuthenticatedData.length > 0 &&
+    filteredNonAuthenticatedData.every((item) => selectedPublicIds.includes(item.id));
+  const somePublicSelected =
+    filteredNonAuthenticatedData.some((item) => selectedPublicIds.includes(item.id)) &&
+    !allPublicSelected;
+
+  useEffect(() => {
+    if (selectAllPublicRef.current) {
+      selectAllPublicRef.current.indeterminate = somePublicSelected && !allPublicSelected;
+    }
+  }, [somePublicSelected, allPublicSelected]);
+
   const handleDeleteAuthenticated = (interestId: number) => {
-    setDeleteTarget({ id: interestId, type: "authenticated" });
+    setDeleteTarget({ ids: [interestId], type: "authenticated" });
   };
 
   const handleDeletePublic = (interestId: number) => {
-    setDeleteTarget({ id: interestId, type: "public" });
+    setDeleteTarget({ ids: [interestId], type: "public" });
+  };
+
+  const handleBulkDeleteAuthenticated = () => {
+    if (selectedAuthenticatedIds.length === 0) return;
+    setDeleteTarget({ ids: selectedAuthenticatedIds, type: "authenticated" });
+  };
+
+  const handleBulkDeletePublic = () => {
+    if (selectedPublicIds.length === 0) return;
+    setDeleteTarget({ ids: selectedPublicIds, type: "public" });
   };
 
   const handleCancelDelete = () => {
@@ -109,18 +147,36 @@ export const InterestPage = () => {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      setDeletingId(deleteTarget.id);
-      await deleteInquiry(deleteTarget.id);
-      if (deleteTarget.type === "authenticated") {
-        setAuthenticatedData((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setIsDeleting(true);
+      const ids = deleteTarget.ids;
+      if (ids.length === 1) {
+        await deleteInquiry(ids[0]);
+        if (deleteTarget.type === "authenticated") {
+          setAuthenticatedData((prev) => prev.filter((item) => item.id !== ids[0]));
+          setSelectedAuthenticatedIds((prev) => prev.filter((id) => id !== ids[0]));
+        } else {
+          setNonAuthenticatedData((prev) => prev.filter((item) => item.id !== ids[0]));
+          setSelectedPublicIds((prev) => prev.filter((id) => id !== ids[0]));
+        }
+        toast.success("Inquiry deleted");
       } else {
-        setNonAuthenticatedData((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+        const result = await deleteInquiriesBulk(ids);
+        if (deleteTarget.type === "authenticated") {
+          setAuthenticatedData((prev) => prev.filter((item) => !ids.includes(item.id)));
+          setSelectedAuthenticatedIds([]);
+        } else {
+          setNonAuthenticatedData((prev) => prev.filter((item) => !ids.includes(item.id)));
+          setSelectedPublicIds([]);
+        }
+        toast.success(`Deleted ${result.deleted_count} inquiries`);
+        if (result.missing_ids.length > 0) {
+          toast.error(`Missing inquiries: ${result.missing_ids.join(", ")}`);
+        }
       }
-      toast.success("Inquiry deleted");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to delete inquiry"));
     } finally {
-      setDeletingId(null);
+      setIsDeleting(false);
       setDeleteTarget(null);
     }
   };
@@ -139,6 +195,34 @@ export const InterestPage = () => {
           : item
       )
     );
+  };
+
+  const toggleAuthenticatedSelection = (id: number) => {
+    setSelectedAuthenticatedIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const togglePublicSelection = (id: number) => {
+    setSelectedPublicIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAuthenticatedSelectAll = () => {
+    if (allAuthenticatedSelected) {
+      setSelectedAuthenticatedIds([]);
+      return;
+    }
+    setSelectedAuthenticatedIds(filteredAuthenticatedData.map((item) => item.id));
+  };
+
+  const togglePublicSelectAll = () => {
+    if (allPublicSelected) {
+      setSelectedPublicIds([]);
+      return;
+    }
+    setSelectedPublicIds(filteredNonAuthenticatedData.map((item) => item.id));
   };
 
   if (loading) {
@@ -193,6 +277,28 @@ export const InterestPage = () => {
               </option>
             ))}
           </select>
+
+          {isAuthenticatedTab ? (
+            selectedAuthenticatedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDeleteAuthenticated}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete selected ({selectedAuthenticatedIds.length})
+              </button>
+            )
+          ) : (
+            selectedPublicIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDeletePublic}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete selected ({selectedPublicIds.length})
+              </button>
+            )
+          )}
         </div>
       </div>
 
@@ -217,6 +323,11 @@ export const InterestPage = () => {
         <>
           <InterestTable
             data={filteredAuthenticatedData}
+            selectedIds={selectedAuthenticatedIds}
+            allSelected={allAuthenticatedSelected}
+            someSelected={someAuthenticatedSelected}
+            onToggleSelect={toggleAuthenticatedSelection}
+            onToggleSelectAll={toggleAuthenticatedSelectAll}
             onUpdate={handleUpdateAuthenticated}
             onDelete={handleDeleteAuthenticated}
           />
@@ -225,6 +336,8 @@ export const InterestPage = () => {
               <InterestCard
                 key={interest.id}
                 interest={interest}
+                isSelected={selectedAuthenticatedIds.includes(interest.id)}
+                onToggleSelect={() => toggleAuthenticatedSelection(interest.id)}
                 onUpdate={handleUpdateAuthenticated}
                 onDelete={handleDeleteAuthenticated}
               />
@@ -237,6 +350,15 @@ export const InterestPage = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
+                  <th className="p-4 text-left">
+                    <input
+                      ref={selectAllPublicRef}
+                      type="checkbox"
+                      checked={allPublicSelected}
+                      onChange={togglePublicSelectAll}
+                      aria-label="Select all"
+                    />
+                  </th>
                   <th className="p-4 text-left">Name</th>
                   <th className="text-left">Contact</th>
                   <th className="text-left">Property</th>
@@ -249,6 +371,14 @@ export const InterestPage = () => {
               <tbody>
                 {filteredNonAuthenticatedData.map((interest) => (
                   <tr key={interest.id} className="border-t border-gray-100">
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedPublicIds.includes(interest.id)}
+                        onChange={() => togglePublicSelection(interest.id)}
+                        aria-label={`Select ${interest.name}`}
+                      />
+                    </td>
                     <td className="p-4 font-medium">{interest.name}</td>
                     <td>
                       <p>{interest.email}</p>
@@ -278,10 +408,18 @@ export const InterestPage = () => {
           <div className="grid gap-4 md:hidden">
             {filteredNonAuthenticatedData.map((interest) => (
               <div key={interest.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-                <div>
-                  <p className="font-semibold text-blue-900">{interest.name}</p>
-                  <p className="text-xs text-gray-500">{interest.email}</p>
-                  <p className="text-xs text-gray-500">{interest.phone}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-blue-900">{interest.name}</p>
+                    <p className="text-xs text-gray-500">{interest.email}</p>
+                    <p className="text-xs text-gray-500">{interest.phone}</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedPublicIds.includes(interest.id)}
+                    onChange={() => togglePublicSelection(interest.id)}
+                    aria-label={`Select ${interest.name}`}
+                  />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Property</p>
@@ -313,10 +451,12 @@ export const InterestPage = () => {
           <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-blue-900">
-                Delete inquiry
+                {deleteTarget.ids.length > 1 ? "Delete inquiries" : "Delete inquiry"}
               </h3>
               <p className="mt-2 text-sm text-gray-600">
-                Are you sure you want to delete this inquiry? This action cannot be undone.
+                {deleteTarget.ids.length > 1
+                  ? `Are you sure you want to delete ${deleteTarget.ids.length} inquiries? This action cannot be undone.`
+                  : "Are you sure you want to delete this inquiry? This action cannot be undone."}
               </p>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -324,17 +464,17 @@ export const InterestPage = () => {
                   type="button"
                   onClick={handleCancelDelete}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                  disabled={deletingId === deleteTarget.id}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 text-sm bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50"
-                  disabled={deletingId === deleteTarget.id}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
                 >
-                  {deletingId === deleteTarget.id ? "Deleting..." : "Delete"}
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>

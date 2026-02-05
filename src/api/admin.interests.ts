@@ -7,6 +7,11 @@ import { api } from "./axios";
 // -----------------------------
 export type InquiryUserType = "all" | "public" | "authenticated";
 
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  missing_ids: number[];
+}
+
 const fetchAdminInquiries = async (
   userType: InquiryUserType = "all"
 ): Promise<InvestorInterest[]> => {
@@ -52,6 +57,11 @@ export const updateInvestorInterest = async (
 // Optional: Add update function if needed
 export const deleteInquiry = async (inquiryId: number) => {
   const response = await api.delete(`/admin/inquiries/${inquiryId}`);
+  return response.data;
+};
+
+export const deleteInquiriesBulk = async (ids: number[]): Promise<BulkDeleteResponse> => {
+  const response = await api.delete("/admin/inquiries", { data: { ids } });
   return response.data;
 };
 

@@ -57,3 +57,15 @@ export const deleteAdminUpdateComment = async (commentId: number) => {
   const res = await api.delete(`/admin/updates/comments/${commentId}`);
   return res.data;
 };
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  missing_ids: number[];
+}
+
+export const deleteAdminUpdateCommentsBulk = async (
+  ids: number[]
+): Promise<BulkDeleteResponse> => {
+  const res = await api.delete("/admin/updates/comments", { data: { ids } });
+  return res.data;
+};

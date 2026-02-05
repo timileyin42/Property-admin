@@ -1,17 +1,48 @@
+import { useEffect, useRef } from "react";
 import { AdminUser } from "../../../types/user";
 import { UserRowActions } from "./UserRowActions";
 
 interface Props {
   users: AdminUser[];
   onRefresh?: () => void;
+  selectedIds: number[];
+  allSelected: boolean;
+  someSelected: boolean;
+  onToggleSelect: (id: number) => void;
+  onToggleSelectAll: () => void;
 }
 
-export const UsersTable = ({ users, onRefresh }: Props) => {
+export const UsersTable = ({
+  users,
+  onRefresh,
+  selectedIds,
+  allSelected,
+  someSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+}: Props) => {
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected;
+    }
+  }, [someSelected, allSelected]);
+
   return (
     <div className="bg-white rounded-xl shadow overflow-x-auto p-4">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left">
           <tr>
+            <th className="p-4">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             <th className="p-4">Name</th>
             <th>Email</th>
             <th>Role</th>
@@ -24,6 +55,14 @@ export const UsersTable = ({ users, onRefresh }: Props) => {
         <tbody>
           {users.map((user) => (
             <tr key={user.id} className="border-t border-gray-200">
+              <td className="p-4">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(user.id)}
+                  onChange={() => onToggleSelect(user.id)}
+                  aria-label={`Select ${user.full_name}`}
+                />
+              </td>
               <td className="p-4 font-medium">{user.full_name}</td>
               <td>{user.email}</td>
 

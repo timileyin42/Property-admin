@@ -47,3 +47,15 @@ export const deleteAdminProperty = async (propertyId: number) => {
   const res = await api.delete(`/admin/properties/${propertyId}`);
   return res.data;
 };
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  missing_ids: number[];
+}
+
+export const deleteAdminPropertiesBulk = async (
+  ids: number[]
+): Promise<BulkDeleteResponse> => {
+  const res = await api.delete("/admin/properties", { data: { ids } });
+  return res.data;
+};

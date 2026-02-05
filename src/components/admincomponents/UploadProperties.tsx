@@ -8,7 +8,11 @@ import { FiUpload } from "react-icons/fi";
 
 import { api } from "../../api/axios";
 import { fetchProperties } from "../../api/properties";
-import { deleteAdminProperty, updateAdminProperty } from "../../api/admin.properties";
+import {
+  deleteAdminPropertiesBulk,
+  deleteAdminProperty,
+  updateAdminProperty,
+} from "../../api/admin.properties";
 import { PropertyTable } from "../../components/PropertyTable";
 import type { ApiProperty } from "../../types/property";
 import { getErrorMessage } from "../../util/getErrorMessage";
@@ -77,7 +81,8 @@ const AdminInvestmentsPage: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolver: Resolver<PropertyFormValues> =
@@ -365,26 +370,61 @@ const AdminInvestmentsPage: React.FC = () => {
   }, []);
 
   const handleDelete = (propertyId: number) => {
-    setDeleteTargetId(propertyId);
+    setDeleteTargetIds([propertyId]);
   };
 
   const handleCancelDelete = () => {
-    setDeleteTargetId(null);
+    setDeleteTargetIds([]);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedPropertyIds.length === 0) return;
+    setDeleteTargetIds(selectedPropertyIds);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTargetId) return;
+    if (deleteTargetIds.length === 0) return;
     try {
       setIsDeleting(true);
-      await deleteAdminProperty(deleteTargetId);
-      setProperties((prev) => prev.filter((item) => item.id !== deleteTargetId));
-      toast.success("Property deleted");
+      if (deleteTargetIds.length === 1) {
+        await deleteAdminProperty(deleteTargetIds[0]);
+        setProperties((prev) => prev.filter((item) => item.id !== deleteTargetIds[0]));
+        setSelectedPropertyIds((prev) => prev.filter((id) => id !== deleteTargetIds[0]));
+        toast.success("Property deleted");
+      } else {
+        const result = await deleteAdminPropertiesBulk(deleteTargetIds);
+        setProperties((prev) => prev.filter((item) => !deleteTargetIds.includes(item.id)));
+        setSelectedPropertyIds([]);
+        toast.success(`Deleted ${result.deleted_count} properties`);
+        if (result.missing_ids.length > 0) {
+          toast.error(`Missing properties: ${result.missing_ids.join(", ")}`);
+        }
+      }
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to delete property"));
     } finally {
       setIsDeleting(false);
-      setDeleteTargetId(null);
+      setDeleteTargetIds([]);
     }
+  };
+
+  const togglePropertySelection = (id: number) => {
+    setSelectedPropertyIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const allPropertiesSelected =
+    properties.length > 0 && properties.every((item) => selectedPropertyIds.includes(item.id));
+  const somePropertiesSelected =
+    properties.some((item) => selectedPropertyIds.includes(item.id)) && !allPropertiesSelected;
+
+  const togglePropertySelectAll = () => {
+    if (allPropertiesSelected) {
+      setSelectedPropertyIds([]);
+      return;
+    }
+    setSelectedPropertyIds(properties.map((item) => item.id));
   };
 
   /* =======================
@@ -500,17 +540,37 @@ const AdminInvestmentsPage: React.FC = () => {
         properties={properties} 
         loading={loadingProperties || isDeleting} 
         onDelete={handleDelete}
+        selectedIds={selectedPropertyIds}
+        allSelected={allPropertiesSelected}
+        someSelected={somePropertiesSelected}
+        onToggleSelect={togglePropertySelection}
+        onToggleSelectAll={togglePropertySelectAll}
       />
 
-      {deleteTargetId !== null && (
+      {selectedPropertyIds.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+            disabled={isDeleting}
+          >
+            Delete selected ({selectedPropertyIds.length})
+          </button>
+        </div>
+      )}
+
+      {deleteTargetIds.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-blue-900">
-                Delete property
+                {deleteTargetIds.length > 1 ? "Delete properties" : "Delete property"}
               </h3>
               <p className="mt-2 text-sm text-gray-600">
-                Are you sure you want to delete this property? This action cannot be undone.
+                {deleteTargetIds.length > 1
+                  ? `Are you sure you want to delete ${deleteTargetIds.length} properties? This action cannot be undone.`
+                  : "Are you sure you want to delete this property? This action cannot be undone."}
               </p>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -525,7 +585,7 @@ const AdminInvestmentsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 text-sm bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50"
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                   disabled={isDeleting}
                 >
                   {isDeleting ? "Deleting..." : "Delete"}

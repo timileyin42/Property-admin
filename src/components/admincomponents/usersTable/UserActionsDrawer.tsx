@@ -13,6 +13,7 @@ interface Props {
 
 export const UserActionsDrawer = ({ user, onClose, onRefresh }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleRoleUpdate = async (role: "ADMIN" | "INVESTOR") => {
@@ -45,10 +46,15 @@ export const UserActionsDrawer = ({ user, onClose, onRefresh }: Props) => {
     }
   };
 
-  const handleDelete = async () => {
-    const confirmDelete = window.confirm("Delete this user?");
-    if (!confirmDelete) return;
+  const handleDelete = () => {
+    setIsDeleteOpen(true);
+  };
 
+  const handleCancelDelete = () => {
+    setIsDeleteOpen(false);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
       setIsSubmitting(true);
       await deleteUser(user.id);
@@ -60,6 +66,7 @@ export const UserActionsDrawer = ({ user, onClose, onRefresh }: Props) => {
       toast.error("Failed to delete user");
     } finally {
       setIsSubmitting(false);
+      setIsDeleteOpen(false);
     }
   };
 
@@ -117,6 +124,40 @@ export const UserActionsDrawer = ({ user, onClose, onRefresh }: Props) => {
           Delete User
         </button>
       </div>
+
+      {isDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">
+                Delete user
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete this user? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

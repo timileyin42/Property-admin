@@ -7,6 +7,8 @@ import { PropertyActions } from "./PropertyActions";
 // type PropertyStatus = "ACTIVE" | "SOLD" | "PENDING" | "ARCHIVED" | "DRAFT";
 interface PropertyRowProps {
   property: ApiProperty;
+  isSelected: boolean;
+  onToggleSelect: () => void;
   onDelete: (propertyId: number) => void;
 }
 
@@ -14,9 +16,22 @@ interface PropertyRowProps {
 
 
 
-export const PropertyRow = ({ property, onDelete }: PropertyRowProps) => {
+export const PropertyRow = ({
+  property,
+  isSelected,
+  onToggleSelect,
+  onDelete,
+}: PropertyRowProps) => {
   return (
     <tr className="">
+      <td className="py-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          aria-label={`Select ${property.title}`}
+        />
+      </td>
       <td className="py-3 font-medium ">{property.title}</td>
       <td className="text-gray-400">{property.location}</td>
       <td className="text-gray-400">₦{property.project_value.toLocaleString()}</td>

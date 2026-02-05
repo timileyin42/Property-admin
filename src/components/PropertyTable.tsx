@@ -1,4 +1,5 @@
 // components/PropertyTable.tsx
+import { useEffect, useRef } from "react";
 // import { useEffect, useState } from "react";
 import { ApiProperty } from "../types/property";
 // import { fetchProperties } from "../api/properties";
@@ -8,9 +9,30 @@ interface Props {
   properties: ApiProperty[];
   loading: boolean;
   onDelete: (propertyId: number) => void;
+  selectedIds: number[];
+  allSelected: boolean;
+  someSelected: boolean;
+  onToggleSelect: (id: number) => void;
+  onToggleSelectAll: () => void;
 }
-export const PropertyTable = ({ properties, loading, onDelete }: Props) => {
+export const PropertyTable = ({
+  properties,
+  loading,
+  onDelete,
+  selectedIds,
+  allSelected,
+  someSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+}: Props) => {
   const rows = Array.isArray(properties) ? properties : [];
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected;
+    }
+  }, [someSelected, allSelected]);
   // const [properties, setProperties] = useState<Property[]>([]);
   // const [loading, setLoading] = useState(true);
 
@@ -27,6 +49,15 @@ export const PropertyTable = ({ properties, loading, onDelete }: Props) => {
       <table className="min-w-full text-sm">
         <thead className="bg-gray-50 text-gray-600">
           <tr>
+            <th className="text-left p-4">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             <th className="text-left p-4">Property Name</th>
             <th className="text-left">Location</th>
             <th className="text-left">Total Value</th>
@@ -43,6 +74,8 @@ export const PropertyTable = ({ properties, loading, onDelete }: Props) => {
             <PropertyRow
               key={property.id}
               property={property}
+              isSelected={selectedIds.includes(property.id)}
+              onToggleSelect={() => onToggleSelect(property.id)}
               onDelete={onDelete}
             />
           ))}

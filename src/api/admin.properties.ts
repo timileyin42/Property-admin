@@ -42,3 +42,8 @@ export const updateAdminProperty = async (
   const res = await api.patch(`/admin/properties/${propertyId}`, payload);
   return res.data;
 };
+
+export const deleteAdminProperty = async (propertyId: number) => {
+  const res = await api.delete(`/admin/properties/${propertyId}`);
+  return res.data;
+};

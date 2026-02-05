@@ -32,7 +32,7 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
           page_size: pageSize,
         });
         setUpdate(res.update);
-        setComments(res.comments ?? []);
+        setComments(Array.isArray(res.comments) ? res.comments : []);
         setTotal(res.total ?? 0);
       } catch (error: unknown) {
         toast.error(getErrorMessage(error, "Failed to load update details"));
@@ -130,7 +130,7 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
                   <p className="text-sm text-gray-500">No comments yet.</p>
                 ) : (
                   <div className="space-y-3">
-                    {comments.map((comment) => (
+                    {(Array.isArray(comments) ? comments : []).map((comment) => (
                       <div key={comment.id} className="border border-gray-200 rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-900">{comment.user_name}</p>

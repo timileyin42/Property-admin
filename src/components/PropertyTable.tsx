@@ -7,8 +7,10 @@ import { PropertyRow } from "./PropertyRow";
 interface Props {
   properties: ApiProperty[];
   loading: boolean;
+  onDelete: (propertyId: number) => void;
 }
-export const PropertyTable = ({ properties, loading }: Props) => {
+export const PropertyTable = ({ properties, loading, onDelete }: Props) => {
+  const rows = Array.isArray(properties) ? properties : [];
   // const [properties, setProperties] = useState<Property[]>([]);
   // const [loading, setLoading] = useState(true);
 
@@ -37,8 +39,12 @@ export const PropertyTable = ({ properties, loading }: Props) => {
         </thead>
 
         <tbody>
-          {properties.map((property) => (
-            <PropertyRow key={property.id} property={property} />
+          {rows.map((property) => (
+            <PropertyRow
+              key={property.id}
+              property={property}
+              onDelete={onDelete}
+            />
           ))}
         </tbody>
       </table>

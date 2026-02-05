@@ -7,14 +7,14 @@ import { PropertyActions } from "./PropertyActions";
 // type PropertyStatus = "ACTIVE" | "SOLD" | "PENDING" | "ARCHIVED" | "DRAFT";
 interface PropertyRowProps {
   property: ApiProperty;
+  onDelete: (propertyId: number) => void;
 }
 
 
 
 
 
-export const PropertyRow = ({ property }: PropertyRowProps) => {
-  console.log(property);
+export const PropertyRow = ({ property, onDelete }: PropertyRowProps) => {
   return (
     <tr className="">
       <td className="py-3 font-medium ">{property.title}</td>
@@ -39,8 +39,7 @@ export const PropertyRow = ({ property }: PropertyRowProps) => {
       </td>
       <td className="text-gray-400">
         <PropertyActions
-          onView={() => console.log("View", property.status)}
-          onEdit={() => console.log("Edit", property.id)}
+          onDelete={() => onDelete(property.id)}
         />
       </td>
     </tr>

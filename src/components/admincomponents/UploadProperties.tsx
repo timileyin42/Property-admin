@@ -8,7 +8,7 @@ import { FiUpload } from "react-icons/fi";
 
 import { api } from "../../api/axios";
 import { fetchProperties } from "../../api/properties";
-import { updateAdminProperty } from "../../api/admin.properties";
+import { deleteAdminProperty, updateAdminProperty } from "../../api/admin.properties";
 import { PropertyTable } from "../../components/PropertyTable";
 import type { ApiProperty } from "../../types/property";
 import { getErrorMessage } from "../../util/getErrorMessage";
@@ -76,6 +76,8 @@ const AdminInvestmentsPage: React.FC = () => {
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolver: Resolver<PropertyFormValues> =
@@ -362,6 +364,29 @@ const AdminInvestmentsPage: React.FC = () => {
     load();
   }, []);
 
+  const handleDelete = (propertyId: number) => {
+    setDeleteTargetId(propertyId);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTargetId(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+    try {
+      setIsDeleting(true);
+      await deleteAdminProperty(deleteTargetId);
+      setProperties((prev) => prev.filter((item) => item.id !== deleteTargetId));
+      toast.success("Property deleted");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete property"));
+    } finally {
+      setIsDeleting(false);
+      setDeleteTargetId(null);
+    }
+  };
+
   /* =======================
      UI
   ======================= */
@@ -473,8 +498,43 @@ const AdminInvestmentsPage: React.FC = () => {
       {/* Type assertion for PropertyTable to handle the type mismatch */}
       <PropertyTable 
         properties={properties} 
-        loading={loadingProperties} 
+        loading={loadingProperties || isDeleting} 
+        onDelete={handleDelete}
       />
+
+      {deleteTargetId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">
+                Delete property
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete this property? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
-import { fetchInvestorInterests, fetchNonAuthenticatedInterests } from "../api/admin.interests";
+import { deleteInquiry, fetchInvestorInterests, fetchNonAuthenticatedInterests } from "../api/admin.interests";
 import { InterestCard } from "../components/admincomponents/InterestCard";
 import { InterestTable } from "../components/admincomponents/InterestTable";
+import { InterestActions } from "../components/admincomponents/InterestActions";
 import { InterestStatus, InvestorInterest } from "../types/investment";
 import { NonAuthenticatedInterest } from "../types/interest";
 import { formatDate } from "../util/formatDate";
@@ -33,6 +34,10 @@ export const InterestPage = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [userTypeFilter, setUserTypeFilter] = useState<UserTypeFilter>("authenticated");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    { id: number; type: "authenticated" | "public" } | null
+  >(null);
 
   useEffect(() => {
     const loadAllInterests = async () => {
@@ -88,6 +93,53 @@ export const InterestPage = () => {
   const currentDataCount = isAuthenticatedTab
     ? filteredAuthenticatedData.length
     : filteredNonAuthenticatedData.length;
+
+  const handleDeleteAuthenticated = (interestId: number) => {
+    setDeleteTarget({ id: interestId, type: "authenticated" });
+  };
+
+  const handleDeletePublic = (interestId: number) => {
+    setDeleteTarget({ id: interestId, type: "public" });
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeletingId(deleteTarget.id);
+      await deleteInquiry(deleteTarget.id);
+      if (deleteTarget.type === "authenticated") {
+        setAuthenticatedData((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      } else {
+        setNonAuthenticatedData((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      }
+      toast.success("Inquiry deleted");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete inquiry"));
+    } finally {
+      setDeletingId(null);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleUpdateAuthenticated = (updated: InvestorInterest) => {
+    setAuthenticatedData((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item))
+    );
+  };
+
+  const handleUpdatePublic = (updated: InvestorInterest) => {
+    setNonAuthenticatedData((prev) =>
+      prev.map((item) =>
+        item.id === updated.id
+          ? { ...item, status: updated.status }
+          : item
+      )
+    );
+  };
 
   if (loading) {
     return (
@@ -163,10 +215,19 @@ export const InterestPage = () => {
         <div className="text-sm text-gray-500">No interests found.</div>
       ) : isAuthenticatedTab ? (
         <>
-          <InterestTable data={filteredAuthenticatedData} onUpdate={() => undefined} />
+          <InterestTable
+            data={filteredAuthenticatedData}
+            onUpdate={handleUpdateAuthenticated}
+            onDelete={handleDeleteAuthenticated}
+          />
           <div className="grid gap-4 md:hidden">
             {filteredAuthenticatedData.map((interest) => (
-              <InterestCard key={interest.id} interest={interest} onUpdate={() => undefined} />
+              <InterestCard
+                key={interest.id}
+                interest={interest}
+                onUpdate={handleUpdateAuthenticated}
+                onDelete={handleDeleteAuthenticated}
+              />
             ))}
           </div>
         </>
@@ -182,6 +243,7 @@ export const InterestPage = () => {
                   <th className="text-left">Message</th>
                   <th className="text-left">Date</th>
                   <th className="text-left">Status</th>
+                  <th className="text-left">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,6 +261,13 @@ export const InterestPage = () => {
                     <td className="text-gray-500">{formatDate(interest.created_at)}</td>
                     <td>
                       <StatusBadge status={resolveStatus(interest.status)} />
+                    </td>
+                    <td>
+                      <InterestActions
+                        interest={toInvestorInterest(interest)}
+                        onUpdate={handleUpdatePublic}
+                        onDelete={handleDeletePublic}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -226,14 +295,73 @@ export const InterestPage = () => {
                   <span>{formatDate(interest.created_at)}</span>
                   <StatusBadge status={resolveStatus(interest.status)} />
                 </div>
+                <div className="flex justify-end">
+                  <InterestActions
+                    interest={toInvestorInterest(interest)}
+                    onUpdate={handleUpdatePublic}
+                    onDelete={handleDeletePublic}
+                  />
+                </div>
               </div>
             ))}
           </div>
         </>
       )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">
+                Delete inquiry
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete this inquiry? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={deletingId === deleteTarget.id}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50"
+                  disabled={deletingId === deleteTarget.id}
+                >
+                  {deletingId === deleteTarget.id ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+const toInvestorInterest = (interest: NonAuthenticatedInterest): InvestorInterest => ({
+  id: interest.id,
+  name: interest.name,
+  email: interest.email,
+  phone: interest.phone,
+  message: interest.message ?? null,
+  property_id: interest.property_id,
+  property_title: interest.property_title ?? "",
+  fractions: undefined,
+  investment_amount: undefined,
+  status: resolveStatus(interest.status),
+  contacted_at: null,
+  assigned_admin_id: null,
+  notes: null,
+  created_at: interest.created_at,
+  updated_at: interest.created_at,
+});
 
 const resolveStatus = (status?: string): InterestStatus =>
   interestStatuses.includes(status as InterestStatus)

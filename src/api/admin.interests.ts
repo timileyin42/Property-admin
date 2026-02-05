@@ -1,59 +1,34 @@
 // src/api/admin.interests.ts
-import axios from "axios";
 import { InvestorInterest } from "../types/investment";
-//NonAuthenticatedInterest
-import {api} from "./axios"
-// -----------------------------
-// Axios instance (admin-only)
-// -----------------------------
-const adminApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-});
-
-// -----------------------------
-// Attach auth token automatically
-// -----------------------------
-adminApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // ✅ single source of truth
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
+import { api } from "./axios";
 
 // -----------------------------
 // API functions
 // -----------------------------
-// FETCHING AUTHENTICATED USERS INTERESTS IN A PROPERTY
-export const fetchInvestorInterests = async (): Promise<InvestorInterest[]> => {
-  const res = await api.get("/admin/interests");
-  // console.log(res);
-  // console.log("ADMIN INQUIRIES RESPONSE:", res.data);
+export type InquiryUserType = "all" | "public" | "authenticated";
+
+const fetchAdminInquiries = async (
+  userType: InquiryUserType = "all"
+): Promise<InvestorInterest[]> => {
+  const res = await api.get("/admin/inquiries", {
+    params: userType === "all" ? undefined : { user_type: userType },
+  });
 
   const interests = res?.data?.inquiries;
 
   if (!Array.isArray(interests)) {
-    console.warn("Unexpected interests response:", res.data);
+    console.warn("Unexpected inquiries response:", res.data);
     return [];
   }
 
   return interests;
 };
 
-// FETCHING NON-AUTHENTICATED USERS INTEREST IN A PROPERTY DATA
-// api/admin.interests.ts or new file
+export const fetchInvestorInterests = async (): Promise<InvestorInterest[]> =>
+  fetchAdminInquiries("authenticated");
 
-
-export const fetchNonAuthenticatedInterests = async () => {
-  const response = await api.get("/admin/inquiries");
-  const interests = response?.data?.inquiries;
-
-  console.log("NonAuth API Response:", response.data.inquiries);
-
-  return interests; // ✅ actual list
-};
+export const fetchNonAuthenticatedInterests = async (): Promise<InvestorInterest[]> =>
+  fetchAdminInquiries("public");
 
 
 // Update interest function
@@ -75,28 +50,8 @@ export const updateInvestorInterest = async (
 
 
 // Optional: Add update function if needed
-export const updateNonAuthenticatedContact = async (
-  contactId: number,
-  data: Partial<{
-    status: string;
-    notes?: string;
-  }>
-) => {
-  const response = await api.put(`/contact/${contactId}`, data);
-  return response.data;
-};
-
-
-
-export const updateInterest = async (
-  interestId: number,
-  data: {
-    status: string;
-    assigned_admin_id?: number;
-    notes?: string;
-  }
-) => {
-  const response = await api.put(`/admin/interests/${interestId}`, data);
+export const deleteInquiry = async (inquiryId: number) => {
+  const response = await api.delete(`/admin/inquiries/${inquiryId}`);
   return response.data;
 };
 

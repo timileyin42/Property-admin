@@ -14,14 +14,7 @@ interface UpdateInterestModalProps {
   onUpdate: (updatedInterest: InvestorInterest) => void;
 }
 
-const STATUS_OPTIONS = [
-  "NEW",
-  "PENDING",
-  "CONTACTED",
-  "APPROVED",
-  "REJECTED",
-  "CLOSED",
-];
+const STATUS_OPTIONS: InterestStatus[] = ["CONTACTED", "CLOSED"];
 
 
 export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
@@ -30,7 +23,9 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
   interest,
   onUpdate
 }) => {
-  const [status, setStatus] = useState(interest.status || "NEW");
+  const [status, setStatus] = useState<InterestStatus>(
+    interest.status || "NEW"
+  );
   const [notes, setNotes] = useState(interest.notes || "");
   const [adminId, setAdminId] = useState(interest.assigned_admin_id?.toString() || "");
   const [loading, setLoading] = useState(false);
@@ -39,7 +34,8 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    setStatus(interest.status || "NEW");
+    const initialStatus = resolveNextStatus(interest.status);
+    setStatus(initialStatus);
     setNotes(interest.notes || "");
     setAdminId(interest.assigned_admin_id?.toString() || "");
   }, [interest, isOpen]);
@@ -74,7 +70,7 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
     setLoading(true);
     try {
       const updateData = {
-        status,
+        status: resolveNextStatus(interest.status),
         notes: notes.trim() || undefined,
         assigned_admin_id: adminId ? parseInt(adminId) : undefined
       };
@@ -121,12 +117,12 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
                 </label>
                 <select
                   value={status}
-                    onChange={(e) => setStatus(e.target.value as InterestStatus)}
+                  onChange={(e) => setStatus(e.target.value as InterestStatus)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                   disabled={loading}
                 >
-                  {STATUS_OPTIONS.map((option) => (
+                  {getStatusOptions(interest.status).map((option) => (
                     <option key={option} value={option}>
                       {option.replace("_", " ")}
                     </option>
@@ -199,4 +195,14 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
       </div>
     </div>
   );
+};
+
+const resolveNextStatus = (current?: InterestStatus) => {
+  if (current === "CONTACTED") return "CLOSED";
+  return "CONTACTED";
+};
+
+const getStatusOptions = (current?: InterestStatus) => {
+  if (current === "CONTACTED") return ["CLOSED"];
+  return ["CONTACTED"];
 };

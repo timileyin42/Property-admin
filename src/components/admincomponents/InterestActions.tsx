@@ -6,9 +6,10 @@ import { UpdateInterestModal } from "./UpdateInterestModal";
 interface Props {
   interest: InvestorInterest;
   onUpdate?: (updatedInterest: InvestorInterest) => void;
+  onDelete?: (deletedId: number) => void;
 }
 
-export const InterestActions = ({ interest, onUpdate }: Props) => {
+export const InterestActions = ({ interest, onUpdate, onDelete }: Props) => {
   const [open, setOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
@@ -21,6 +22,11 @@ export const InterestActions = ({ interest, onUpdate }: Props) => {
     if (onUpdate) {
       onUpdate(updatedInterest);
     }
+  };
+
+  const handleDelete = () => {
+    onDelete?.(interest.id);
+    setOpen(false);
   };
 
   // const handleApprove = async () => {
@@ -57,6 +63,13 @@ export const InterestActions = ({ interest, onUpdate }: Props) => {
               Update Status
             </button>
 
+            <button
+              onClick={handleDelete}
+              className="block w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-red-600 border-t"
+            >
+              Delete
+            </button>
+
             {/* <button
               onClick={handleApprove}
               className="block w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-green-600"
@@ -71,11 +84,6 @@ export const InterestActions = ({ interest, onUpdate }: Props) => {
               ❌ Reject
             </button>
 
-            <button
-              onClick={handleDelete}
-              className="block w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-red-600 border-t"
-            >
-              🗑️ Delete
             </button> */}
           </div>
         )}

@@ -6,9 +6,10 @@ import { InterestRow } from "./InterestRow";
 interface Props {
   data: InvestorInterest[];
   onUpdate?: (updatedInterest: InvestorInterest) => void;
+  onDelete?: (deletedId: number) => void;
 }
 
-export const InterestTable = ({ data, onUpdate}: Props) => (
+export const InterestTable = ({ data, onUpdate, onDelete}: Props) => (
   <div className="hidden md:block overflow-x-auto bg-white rounded-xl shadow">
 
     <table className="min-w-full text-sm">
@@ -30,6 +31,7 @@ export const InterestTable = ({ data, onUpdate}: Props) => (
             key={interest.id}
             interest={interest}
             onUpdate={onUpdate}
+            onDelete={onDelete}
           />
         ))}
       </tbody>

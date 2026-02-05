@@ -7,15 +7,16 @@ import { InvestorInterest } from "../../types/investment";
 interface Props {
   interest: InvestorInterest;
   onUpdate?: (updatedInterest: InvestorInterest) => void;
+  onDelete?: (deletedId: number) => void;
 }
-export const InterestCard: React.FC<Props> = ({ interest, onUpdate}: Props) =>{
+export const InterestCard: React.FC<Props> = ({ interest, onUpdate, onDelete}: Props) =>{
 
 
 return(
   <div className="bg-white p-4 rounded-xl shadow flex flex-col gap-2">
     <div className="flex justify-between items-center">
       <h4 className="font-semibold">{interest.name}</h4>
-      <InterestActions interest={interest} onUpdate={onUpdate} />
+      <InterestActions interest={interest} onUpdate={onUpdate} onDelete={onDelete} />
     </div>
 
 

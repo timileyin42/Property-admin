@@ -7,9 +7,10 @@ import { InvestorInterest } from "../../types/investment";
 interface Props {
   interest: InvestorInterest;
   onUpdate?: (updatedInterest: InvestorInterest) => void;
+  onDelete?: (deletedId: number) => void;
 }
 
-export const InterestRow = ({ interest, onUpdate}: Props) => (
+export const InterestRow = ({ interest, onUpdate, onDelete}: Props) => (
 
   <tr className="border-t border-gray-100 p-4">
     <td className="p-4 font-medium">{interest.name}</td>
@@ -28,7 +29,7 @@ export const InterestRow = ({ interest, onUpdate}: Props) => (
     </td>
 
     <td>
-      <InterestActions interest={interest} onUpdate={onUpdate} />
+      <InterestActions interest={interest} onUpdate={onUpdate} onDelete={onDelete} />
     </td>
   </tr>
 );

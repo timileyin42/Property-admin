@@ -32,8 +32,24 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
           page_size: pageSize,
         });
         setUpdate(res.update);
-        setComments(Array.isArray(res.comments) ? res.comments : []);
-        setTotal(res.total ?? 0);
+        const resolvedComments =
+          Array.isArray(res.comments)
+            ? res.comments
+            : Array.isArray((res as any)?.comments?.comments)
+              ? (res as any).comments.comments
+              : Array.isArray((res as any)?.comments?.data)
+                ? (res as any).comments.data
+                : Array.isArray((res as any)?.update?.comments)
+                  ? (res as any).update.comments
+                  : [];
+        const resolvedTotal =
+          typeof res.total === "number"
+            ? res.total
+            : typeof (res as any)?.comments?.total === "number"
+              ? (res as any).comments.total
+              : resolvedComments.length;
+        setComments(resolvedComments);
+        setTotal(resolvedTotal);
       } catch (error: unknown) {
         toast.error(getErrorMessage(error, "Failed to load update details"));
       } finally {

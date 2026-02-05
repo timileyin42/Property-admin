@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { API_BASE_URL } from "../../api/axios";
+import { api } from "../../api/axios";
 import type { UpdateItem } from "../../types/updates";
 import { createAdminUpdate, updateAdminUpdate } from "../../api/admin.updates";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
@@ -81,18 +81,6 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
         .filter((item) => Boolean(item.normalized)),
     [mediaUrls]
   );
-
-  const mediaPayload = useMemo(() => {
-    const image = normalizedMedia.find((item) => !isVideoUrl(item.normalized))?.raw;
-    const video = normalizedMedia.find((item) => isVideoUrl(item.normalized))?.raw;
-    const media_files = normalizedMedia.map((item) => ({
-      media_type: (isVideoUrl(item.normalized) ? "video" : "image") as
-        | "video"
-        | "image",
-      url: item.raw,
-    }));
-    return { image_url: image, video_url: video, media_files };
-  }, [normalizedMedia]);
 
   const removeMedia = (url: string) => {
     setMediaUrls((prev) => prev.filter((item) => item !== url));
@@ -191,15 +179,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
         file_size_bytes: file.size,
       };
 
-      const { data: sig } = await axios.post(
-        `${API_BASE_URL}/media/upload-signature`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token") ?? ""}`,
-          },
-        }
-      );
+      const { data: sig } = await api.post("/media/upload-signature", payload);
 
       const isVideo = file.type.startsWith("video");
       const shouldChunk = isVideo && file.size > MAX_IMAGE_SIZE;
@@ -243,15 +223,32 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
 
     setLoading(true);
     try {
+      let combinedUrls = [...mediaUrls];
+      if (pendingFiles.length > 0) {
+        const uploadedUrls = await uploadPendingFiles(pendingFiles);
+        combinedUrls = [...combinedUrls, ...uploadedUrls];
+      }
+
+      const combinedNormalized = combinedUrls
+        .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
+        .filter((item) => Boolean(item.normalized));
+
+      const image = combinedNormalized.find((item) => !isVideoUrl(item.normalized))?.raw;
+      const video = combinedNormalized.find((item) => isVideoUrl(item.normalized))?.raw;
+      const media_files = combinedNormalized.map((item) => ({
+        media_type: (isVideoUrl(item.normalized) ? "video" : "image") as
+          | "video"
+          | "image",
+        url: item.raw,
+      }));
+
       const payload = {
         property_id: propertyId.trim() ? Number(propertyId) : undefined,
         title: title.trim(),
         content: content.trim(),
-        media_files: mediaPayload.media_files.length
-          ? mediaPayload.media_files
-          : undefined,
-        image_url: mediaPayload.image_url,
-        video_url: mediaPayload.video_url,
+        media_files: media_files.length ? media_files : undefined,
+        image_url: image,
+        video_url: video,
       };
 
       const result = update
@@ -259,50 +256,10 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
         : await createAdminUpdate(payload);
 
       toast.success(update ? "Update saved" : "Update created");
+      setPendingFiles([]);
+      setMediaUrls(combinedUrls);
       onSuccess(result);
       onClose();
-
-      if (pendingFiles.length > 0) {
-        toast.success("Media uploading in background");
-        const filesToUpload = [...pendingFiles];
-        setPendingFiles([]);
-
-        uploadPendingFiles(filesToUpload)
-          .then((newUrls) => {
-            if (newUrls.length === 0) return;
-
-            const combined = [...mediaUrls, ...newUrls];
-            const combinedNormalized = combined
-              .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
-              .filter((item) => Boolean(item.normalized));
-
-            const image = combinedNormalized.find((item) => !isVideoUrl(item.normalized))?.raw;
-            const video = combinedNormalized.find((item) => isVideoUrl(item.normalized))?.raw;
-            const media_files = combinedNormalized.map((item) => ({
-              media_type: (isVideoUrl(item.normalized) ? "video" : "image") as
-                | "video"
-                | "image",
-              url: item.raw,
-            }));
-
-            return updateAdminUpdate(result.id, {
-              property_id: payload.property_id,
-              title: payload.title,
-              content: payload.content,
-              media_files,
-              image_url: image,
-              video_url: video,
-            });
-          })
-          .then((updated) => {
-            if (!updated) return;
-            setMediaUrls((prev) => [...prev, ...updated.media_files?.map((item) => item.url) ?? []]);
-            onSuccess(updated);
-          })
-          .catch((error: unknown) => {
-            toast.error(getErrorMessage(error, "Background upload failed"));
-          });
-      }
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to save update"));
     } finally {

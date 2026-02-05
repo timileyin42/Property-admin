@@ -25,6 +25,22 @@ export const updateAdminUpdate = async (updateId: number, payload: AdminUpdatePa
   return res.data;
 };
 
+export const deleteAdminUpdate = async (updateId: number): Promise<void> => {
+  await api.delete(`/admin/updates/${updateId}`);
+};
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  missing_ids: number[];
+}
+
+export const deleteAdminUpdatesBulk = async (
+  ids: number[]
+): Promise<BulkDeleteResponse> => {
+  const res = await api.delete("/admin/updates", { data: { ids } });
+  return res.data;
+};
+
 export const fetchAdminUpdateDetail = async (
   updateId: number,
   params?: { page?: number; page_size?: number }

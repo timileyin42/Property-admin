@@ -1,8 +1,12 @@
 import { api } from "../api/axios";
 import type { AdminUser, UsersResponse } from "../types/user";
 
-export const fetchAdminUsers = async (): Promise<AdminUser[]> => {
-  const { data } = await api.get<UsersResponse>("/admin/users");
+export const fetchAdminUsers = async (params?: {
+  page?: number;
+  page_size?: number;
+  role?: string;
+}): Promise<AdminUser[]> => {
+  const { data } = await api.get<UsersResponse>("/admin/users", { params });
   return data.users;
 };
 

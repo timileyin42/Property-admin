@@ -3,6 +3,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { getErrorMessage } from "../../util/getErrorMessage";
 
 import { fetchAdminInvestments } from "../../api/admin.investments";
+import DashboardStats from "../../components/admincomponents/DashboardStats";
 import { UpdateValuationModal } from "../../components/admincomponents/UpdateValuationModal";
 import { Investment } from "../../types/investment";
 
@@ -58,7 +59,18 @@ const AdminInvestments = () => {
       <Toaster position="top-right" />
       <section>
         <div className="pt-6 mb-8">
-          <h2 className="font-bold text-blue-900 text-3xl">Investments</h2>
+          <h2 className="font-bold text-blue-900 text-3xl">Admin Dashboard</h2>
+          <p className="text-gray-400 text-sm">
+            Manage properties, users, and investment interests
+          </p>
+        </div>
+
+        <DashboardStats />
+      </section>
+
+      <section className="mt-10">
+        <div className="mb-6">
+          <h2 className="font-semibold text-blue-900 text-2xl">Investments</h2>
           <p className="text-gray-400 text-sm">
             Update valuation for investor holdings
           </p>

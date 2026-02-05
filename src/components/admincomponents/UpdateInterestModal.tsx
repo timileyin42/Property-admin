@@ -1,9 +1,11 @@
 // components/UpdateInterestModal.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { updateInvestorInterest } from "../../api/admin.interests";
 import toast from "react-hot-toast";
 import { getErrorMessage } from "../../util/getErrorMessage";
 import { InvestorInterest, InterestStatus } from "../../types/investment";
+import { fetchAdminUsers } from "../../api/admin.users.api";
+import type { AdminUser } from "../../types/user";
 
 interface UpdateInterestModalProps {
   isOpen: boolean;
@@ -32,6 +34,34 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
   const [notes, setNotes] = useState(interest.notes || "");
   const [adminId, setAdminId] = useState(interest.assigned_admin_id?.toString() || "");
   const [loading, setLoading] = useState(false);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setStatus(interest.status || "NEW");
+    setNotes(interest.notes || "");
+    setAdminId(interest.assigned_admin_id?.toString() || "");
+  }, [interest, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadAdmins = async () => {
+      try {
+        setAdminsLoading(true);
+        const users = await fetchAdminUsers({ role: "admin" });
+        const adminUsers = users.filter((user) => user.role === "ADMIN");
+        setAdmins(adminUsers);
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to load admins"));
+      } finally {
+        setAdminsLoading(false);
+      }
+    };
+
+    loadAdmins();
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,17 +136,22 @@ export const UpdateInterestModal: React.FC<UpdateInterestModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assigned Admin ID
+                  Assigned Admin
                 </label>
-                <input
-                  type="number"
+                <select
                   value={adminId}
                   onChange={(e) => setAdminId(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Optional - Enter admin ID"
-                  disabled={loading}
-                  min="0"
-                />
+                  disabled={loading || adminsLoading}
+                >
+                  <option value="">Unassigned</option>
+                  {adminsLoading && <option value="">Loading admins...</option>}
+                  {!adminsLoading && admins.map((admin) => (
+                    <option key={admin.id} value={admin.id.toString()}>
+                      {admin.full_name || admin.email}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

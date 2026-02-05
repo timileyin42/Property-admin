@@ -3,6 +3,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { fetchUpdates } from "../../api/updates";
 import type { UpdateItem } from "../../types/updates";
 import UpdateNewsModal from "../../components/admincomponents/UpdateNewsModal";
+import { UpdateDetailModal } from "../../components/admincomponents/UpdateDetailModal";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
 import { getErrorMessage } from "../../util/getErrorMessage";
 
@@ -11,6 +12,8 @@ const AdminUpdates = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<UpdateItem | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailUpdateId, setDetailUpdateId] = useState<number | null>(null);
 
   const loadUpdates = useCallback(async () => {
     try {
@@ -36,6 +39,16 @@ const AdminUpdates = () => {
   const handleClose = () => {
     setIsModalOpen(false);
     setSelectedUpdate(null);
+  };
+
+  const handleOpenDetail = (updateId: number) => {
+    setDetailUpdateId(updateId);
+    setIsDetailOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setDetailUpdateId(null);
   };
 
   const handleSuccess = (item: UpdateItem) => {
@@ -103,7 +116,12 @@ const AdminUpdates = () => {
                   <tr key={update.id} className="border-b last:border-b-0">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-16 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDetail(update.id)}
+                          className="h-12 w-16 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center focus:outline-none"
+                          title="View update details"
+                        >
                           {imageUrl ? (
                             <img
                               src={imageUrl}
@@ -122,7 +140,7 @@ const AdminUpdates = () => {
                           ) : (
                             <span className="text-xs text-gray-400">No media</span>
                           )}
-                        </div>
+                        </button>
                         <div>
                           <p className="font-medium text-gray-900">
                             {update.title}
@@ -163,6 +181,12 @@ const AdminUpdates = () => {
         onClose={handleClose}
         update={selectedUpdate}
         onSuccess={handleSuccess}
+      />
+
+      <UpdateDetailModal
+        isOpen={isDetailOpen}
+        updateId={detailUpdateId}
+        onClose={handleCloseDetail}
       />
     </div>
   );

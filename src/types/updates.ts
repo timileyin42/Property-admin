@@ -41,3 +41,11 @@ export interface UpdateCommentResponse {
   page: number;
   page_size: number;
 }
+
+export interface AdminUpdateDetailResponse {
+  update: UpdateItem;
+  comments: UpdateComment[];
+  total: number;
+  page: number;
+  page_size: number;
+}

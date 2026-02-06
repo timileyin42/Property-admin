@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { api } from "../../api/axios";
+import { presignDownload, presignUpload } from "../../api/files";
 import type { UpdateItem } from "../../types/updates";
 import { createAdminUpdate, updateAdminUpdate } from "../../api/admin.updates";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
 import { getErrorMessage } from "../../util/getErrorMessage";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 interface UpdateNewsModalProps {
   isOpen: boolean;
@@ -15,8 +16,7 @@ interface UpdateNewsModalProps {
 }
 
 const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
-const CHUNK_SIZE = 6 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 1024 * 1024 * 1024;
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -45,15 +45,11 @@ const dedupeUrls = (urls: Array<string | null | undefined>) => {
   return result;
 };
 
-type UploadSignature = {
-  upload_url: string;
-  api_key: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-  resource_type: string;
-  allowed_formats?: string;
-};
+const isDirectUrl = (value: string) =>
+  value.startsWith("http") ||
+  value.startsWith("blob:") ||
+  value.startsWith("data:") ||
+  value.startsWith("//");
 
 const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   isOpen,
@@ -97,12 +93,10 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     setOffPlanOnly(Boolean(update.off_plan_only));
   }, [update]);
 
-  const normalizedMedia = useMemo(
-    () =>
-      mediaUrls
-        .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
-        .filter((item) => Boolean(item.normalized)),
-    [mediaUrls]
+  const resolvedMedia = usePresignedMediaUrls(mediaUrls);
+  const resolvedMap = useMemo(
+    () => new Map(resolvedMedia.map((item) => [item.raw, item.url])),
+    [resolvedMedia]
   );
 
   const removeMedia = (url: string) => {
@@ -124,50 +118,29 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     };
   }, [previews]);
 
-  const uploadVideoInChunks = async (
-    file: File,
-    sig: UploadSignature
-  ): Promise<string> => {
-    const totalSize = file.size;
-    let start = 0;
-    let end = Math.min(CHUNK_SIZE, totalSize);
-    const uploadId = `${file.name}-${Date.now()}`;
-    let secureUrl = "";
+  const resolveMediaUrls = async (urls: string[]) => {
+    const unique = Array.from(new Set(urls.filter(Boolean)));
+    const items = await Promise.all(
+      unique.map(async (raw) => {
+        const cached = resolvedMap.get(raw);
+        if (cached) {
+          return { raw, url: cached };
+        }
 
-    while (start < totalSize) {
-      const chunk = file.slice(start, end);
-      const formData = new FormData();
-      formData.append("file", chunk);
-      formData.append("api_key", sig.api_key);
-      formData.append("timestamp", String(sig.timestamp));
-      formData.append("signature", sig.signature);
-      formData.append("folder", sig.folder);
-      formData.append("resource_type", sig.resource_type);
+        if (isDirectUrl(raw)) {
+          return { raw, url: normalizeMediaUrl(raw) || raw };
+        }
 
-      if (sig.allowed_formats) {
-        formData.append("allowed_formats", sig.allowed_formats);
-      }
+        try {
+          const res = await presignDownload({ file_key: raw });
+          return { raw, url: res.download_url || raw };
+        } catch {
+          return { raw, url: raw };
+        }
+      })
+    );
 
-      const uploadRes = await axios.post(sig.upload_url, formData, {
-        headers: {
-          "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
-          "X-Unique-Upload-Id": uploadId,
-        },
-      });
-
-      if (uploadRes.data?.secure_url) {
-        secureUrl = uploadRes.data.secure_url;
-      }
-
-      start = end;
-      end = Math.min(start + CHUNK_SIZE, totalSize);
-    }
-
-    if (!secureUrl) {
-      throw new Error("Cloudinary upload failed");
-    }
-
-    return secureUrl;
+    return items;
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,48 +166,29 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   };
 
   const uploadPendingFiles = async (files: File[]) => {
-    const uploadedUrls: string[] = [];
+    const uploadedKeys: string[] = [];
 
     for (const file of files) {
-      const resourceType = file.type.startsWith("video") ? "video" : "image";
-      const payload = {
-        resource_type: resourceType,
-        file_size_bytes: file.size,
+      const contentType = file.type || "application/octet-stream";
+      const { upload_url, file_key, upload_headers } = await presignUpload({
+        filename: file.name,
+        content_type: contentType,
+      });
+
+      const headers: Record<string, string> = {
+        ...upload_headers,
       };
 
-      const { data: sig } = await api.post("/media/upload-signature", payload);
-
-      const isVideo = file.type.startsWith("video");
-      const shouldChunk = isVideo && file.size > MAX_IMAGE_SIZE;
-
-      if (shouldChunk) {
-        const secureUrl = await uploadVideoInChunks(file, sig);
-        uploadedUrls.push(secureUrl);
-        continue;
+      if (!headers["Content-Type"] && !headers["content-type"]) {
+        headers["Content-Type"] = contentType;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("api_key", sig.api_key);
-      formData.append("timestamp", String(sig.timestamp));
-      formData.append("signature", sig.signature);
-      formData.append("folder", sig.folder);
-      formData.append("resource_type", sig.resource_type);
+      await axios.post(upload_url, file, { headers });
 
-      if (sig.allowed_formats) {
-        formData.append("allowed_formats", sig.allowed_formats);
-      }
-
-      const uploadRes = await axios.post(sig.upload_url, formData);
-
-      if (!uploadRes.data?.secure_url) {
-        throw new Error("Cloudinary upload failed");
-      }
-
-      uploadedUrls.push(uploadRes.data.secure_url);
+      uploadedKeys.push(file_key);
     }
 
-    return uploadedUrls;
+    return uploadedKeys;
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -254,14 +208,12 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
 
       combinedUrls = dedupeUrls(combinedUrls);
 
-      const combinedNormalized = combinedUrls
-        .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
-        .filter((item) => Boolean(item.normalized));
+      const combinedResolved = await resolveMediaUrls(combinedUrls);
 
-      const image = combinedNormalized.find((item) => !isVideoUrl(item.normalized))?.raw;
-      const video = combinedNormalized.find((item) => isVideoUrl(item.normalized))?.raw;
-      const media_files = combinedNormalized.map((item) => ({
-        media_type: (isVideoUrl(item.normalized) ? "video" : "image") as
+      const image = combinedResolved.find((item) => !isVideoUrl(item.url))?.raw;
+      const video = combinedResolved.find((item) => isVideoUrl(item.url))?.raw;
+      const media_files = combinedResolved.map((item) => ({
+        media_type: (isVideoUrl(item.url) ? "video" : "image") as
           | "video"
           | "image",
         url: item.raw,
@@ -408,17 +360,17 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
                       ))}
                     </div>
                   )}
-                  {previews.length === 0 && normalizedMedia.length === 0 ? (
+                  {previews.length === 0 && resolvedMedia.length === 0 ? (
                     <p className="text-sm text-gray-500">No media uploaded.</p>
                   ) : (
-                    normalizedMedia.map(({ raw, normalized }) => (
+                    resolvedMedia.map(({ raw, url }) => (
                       <div
                         key={raw}
                         className="relative w-28 h-20 rounded-md overflow-hidden bg-gray-100"
                       >
-                        {isVideoUrl(normalized) ? (
+                        {isVideoUrl(url) ? (
                           <video
-                            src={normalized}
+                            src={url}
                             className="w-full h-full object-cover"
                             muted
                             playsInline
@@ -427,7 +379,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
                           />
                         ) : (
                           <img
-                            src={normalized}
+                            src={url}
                             alt="Update media"
                             className="w-full h-full object-cover"
                           />

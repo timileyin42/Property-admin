@@ -4,7 +4,6 @@ export const normalizeMediaUrl = (url?: string): string => {
   if (!url) return "";
   if (url.startsWith("http")) return url;
   if (url.startsWith("//")) return `https:${url}`;
-  if (url.startsWith("res.cloudinary")) return `https://${url}`;
 
   const trimmed = url.replace(/^\/+/, "");
   const rootBase = API_BASE_URL.replace(/\/api\/?$/, "/");
@@ -25,4 +24,4 @@ export const normalizeMediaUrl = (url?: string): string => {
 };
 
 export const isVideoUrl = (url: string): boolean =>
-  /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url) || url.includes("/video/upload/");
+  /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { API_BASE_URL } from "../../api/axios";
+import { presignUpload } from "../../api/files";
 import { ApiProperty } from "../../types/property";
 import {
   PropertyStatusFilter,
@@ -9,8 +9,9 @@ import {
   deleteAdminProperty,
   updateAdminProperty,
 } from "../../api/admin.properties";
-import { normalizeMediaUrl, isVideoUrl } from "../../util/normalizeMediaUrl";
+import { isVideoUrl } from "../../util/normalizeMediaUrl";
 import { getErrorMessage } from "../../util/getErrorMessage";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 interface UpdatePropertyModalProps {
   isOpen: boolean;
@@ -26,8 +27,7 @@ const STATUS_OPTIONS: PropertyStatusFilter[] = [
 ];
 
 const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
-const CHUNK_SIZE = 6 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 1024 * 1024 * 1024;
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -44,16 +44,6 @@ const ALLOWED_TYPES = [
   "video/3gpp2",
   "video/x-m4v",
 ];
-
-type UploadSignature = {
-  upload_url: string;
-  api_key: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-  resource_type: string;
-  allowed_formats?: string;
-};
 
 const toNumberOrUndefined = (value: string) => {
   if (!value.trim()) return undefined;
@@ -74,8 +64,6 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
-  const [bedrooms, setBedrooms] = useState("");
-  const [bathrooms, setBathrooms] = useState("");
   const [areaSqft, setAreaSqft] = useState("");
   const [expectedRoi, setExpectedRoi] = useState("");
   const [totalFractions, setTotalFractions] = useState("");
@@ -94,8 +82,6 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     setLocation(property.location ?? "");
     setDescription(property.description ?? "");
     setMediaUrls((property.image_urls ?? []).filter(Boolean));
-    setBedrooms(property.bedrooms?.toString() ?? "");
-    setBathrooms(property.bathrooms?.toString() ?? "");
     setAreaSqft(property.area_sqft?.toString() ?? "");
     setExpectedRoi(property.expected_roi?.toString() ?? "");
     setTotalFractions(property.total_fractions?.toString() ?? "");
@@ -105,62 +91,10 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     setOffPlanDurationMonths(property.off_plan_duration_months?.toString() ?? "");
   }, [property]);
 
-  const normalizedMediaUrls = useMemo(
-    () =>
-      mediaUrls
-        .map((url) => ({ raw: url, normalized: normalizeMediaUrl(url) }))
-        .filter((item) => Boolean(item.normalized)),
-    [mediaUrls]
-  );
+  const resolvedMediaUrls = usePresignedMediaUrls(mediaUrls);
 
   const removeMedia = (url: string) => {
     setMediaUrls((prev) => prev.filter((item) => item !== url));
-  };
-
-  const uploadVideoInChunks = async (
-    file: File,
-    sig: UploadSignature
-  ): Promise<string> => {
-    const totalSize = file.size;
-    let start = 0;
-    let end = Math.min(CHUNK_SIZE, totalSize);
-    const uploadId = `${file.name}-${Date.now()}`;
-    let secureUrl = "";
-
-    while (start < totalSize) {
-      const chunk = file.slice(start, end);
-      const formData = new FormData();
-      formData.append("file", chunk);
-      formData.append("api_key", sig.api_key);
-      formData.append("timestamp", String(sig.timestamp));
-      formData.append("signature", sig.signature);
-      formData.append("folder", sig.folder);
-      formData.append("resource_type", sig.resource_type);
-
-      if (sig.allowed_formats) {
-        formData.append("allowed_formats", sig.allowed_formats);
-      }
-
-      const uploadRes = await axios.post(sig.upload_url, formData, {
-        headers: {
-          "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
-          "X-Unique-Upload-Id": uploadId,
-        },
-      });
-
-      if (uploadRes.data?.secure_url) {
-        secureUrl = uploadRes.data.secure_url;
-      }
-
-      start = end;
-      end = Math.min(start + CHUNK_SIZE, totalSize);
-    }
-
-    if (!secureUrl) {
-      throw new Error("Cloudinary upload failed");
-    }
-
-    return secureUrl;
   };
 
   const handleFileChange = async (
@@ -183,58 +117,30 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
 
     try {
       setLoading(true);
-      const uploadedUrls: string[] = [];
+      const uploadedKeys: string[] = [];
 
       for (const file of validFiles) {
-        const resourceType = file.type.startsWith("video") ? "video" : "image";
-        const payload = {
-          resource_type: resourceType,
-          file_size_bytes: file.size,
-          ...(property?.id ? { property_id: property.id } : {}),
+        const contentType = file.type || "application/octet-stream";
+        const { upload_url, file_key, upload_headers } = await presignUpload({
+          filename: file.name,
+          content_type: contentType,
+        });
+
+        const headers: Record<string, string> = {
+          ...upload_headers,
         };
 
-        const { data: sig } = await axios.post(
-          `${API_BASE_URL}/media/upload-signature`,
-          payload,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token") ?? ""}`,
-            },
-          }
-        );
-
-        const isVideo = file.type.startsWith("video");
-        const shouldChunk = isVideo && file.size > MAX_IMAGE_SIZE;
-
-        if (shouldChunk) {
-          const secureUrl = await uploadVideoInChunks(file, sig);
-          uploadedUrls.push(secureUrl);
-          continue;
+        if (!headers["Content-Type"] && !headers["content-type"]) {
+          headers["Content-Type"] = contentType;
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("api_key", sig.api_key);
-        formData.append("timestamp", String(sig.timestamp));
-        formData.append("signature", sig.signature);
-        formData.append("folder", sig.folder);
-        formData.append("resource_type", sig.resource_type);
+        await axios.post(upload_url, file, { headers });
 
-        if (sig.allowed_formats) {
-          formData.append("allowed_formats", sig.allowed_formats);
-        }
-
-        const uploadRes = await axios.post(sig.upload_url, formData);
-
-        if (!uploadRes.data?.secure_url) {
-          throw new Error("Cloudinary upload failed");
-        }
-
-        uploadedUrls.push(uploadRes.data.secure_url);
+        uploadedKeys.push(file_key);
       }
 
-      if (uploadedUrls.length > 0) {
-        setMediaUrls((prev) => [...prev, ...uploadedUrls]);
+      if (uploadedKeys.length > 0) {
+        setMediaUrls((prev) => [...prev, ...uploadedKeys]);
         toast.success("Media uploaded");
       }
     } catch (error: unknown) {
@@ -265,8 +171,6 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         status,
         image_urls: mediaUrls.length ? mediaUrls : undefined,
         primary_image: mediaUrls[0] ?? "",
-        bedrooms: toNumberOrUndefined(bedrooms),
-        bathrooms: toNumberOrUndefined(bathrooms),
         area_sqft: toNumberOrUndefined(areaSqft),
         expected_roi: toNumberOrUndefined(expectedRoi),
         total_fractions: toNumberOrUndefined(totalFractions),
@@ -403,19 +307,19 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               </label>
               <div className="border border-dashed border-gray-300 rounded-lg p-4 space-y-3">
                 <div className="flex flex-wrap gap-3">
-                  {normalizedMediaUrls.length === 0 ? (
+                    {resolvedMediaUrls.length === 0 ? (
                     <p className="text-sm text-gray-500">
                       No media uploaded.
                     </p>
                   ) : (
-                    normalizedMediaUrls.map(({ raw, normalized }) => (
+                      resolvedMediaUrls.map(({ raw, url }) => (
                       <div
                         key={raw}
                         className="relative w-28 h-20 rounded-md overflow-hidden bg-gray-100"
                       >
-                        {isVideoUrl(normalized) ? (
+                          {isVideoUrl(url) ? (
                           <video
-                            src={normalized}
+                              src={url}
                             className="w-full h-full object-cover"
                             muted
                             playsInline
@@ -424,7 +328,7 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                           />
                         ) : (
                           <img
-                            src={normalized}
+                              src={url}
                             alt="Property media"
                             className="w-full h-full object-cover"
                           />
@@ -463,43 +367,17 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bedrooms
-                </label>
-                <input
-                  type="number"
-                  value={bedrooms}
-                  onChange={(e) => setBedrooms(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bathrooms
-                </label>
-                <input
-                  type="number"
-                  value={bathrooms}
-                  onChange={(e) => setBathrooms(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Area (sqft)
-                </label>
-                <input
-                  type="number"
-                  value={areaSqft}
-                  onChange={(e) => setAreaSqft(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  disabled={loading}
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Area (sqft)
+              </label>
+              <input
+                type="number"
+                value={areaSqft}
+                onChange={(e) => setAreaSqft(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                disabled={loading}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

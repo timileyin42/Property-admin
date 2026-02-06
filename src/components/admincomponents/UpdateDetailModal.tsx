@@ -4,7 +4,8 @@ import { fetchAdminUpdateDetail } from "../../api/admin.updates";
 import { deleteAdminUpdateCommentsBulk } from "../../api/updates";
 import type { AdminUpdateDetailResponse, UpdateComment, UpdateItem } from "../../types/updates";
 import { getErrorMessage } from "../../util/getErrorMessage";
-import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
+import { isVideoUrl } from "../../util/normalizeMediaUrl";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 interface UpdateDetailModalProps {
   isOpen: boolean;
@@ -156,7 +157,7 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
     }
   };
 
-  const mediaUrls = useMemo(() => {
+  const rawMediaUrls = useMemo(() => {
     if (!update) return [] as string[];
     const urls = [
       ...(update.media_files?.map((item) => item.url) ?? []),
@@ -165,13 +166,12 @@ export const UpdateDetailModal = ({ isOpen, updateId, onClose }: UpdateDetailMod
       update.image_url,
       update.video_url,
     ].filter(Boolean) as string[];
-    return urls
-      .map((url) => normalizeMediaUrl(url))
-      .filter(Boolean) as string[];
+    return urls;
   }, [update]);
 
-  const imageUrl = mediaUrls.find((url) => !isVideoUrl(url));
-  const videoUrl = mediaUrls.find((url) => isVideoUrl(url));
+  const resolvedMedia = usePresignedMediaUrls(rawMediaUrls);
+  const imageUrl = resolvedMedia.find((item) => !isVideoUrl(item.url))?.url;
+  const videoUrl = resolvedMedia.find((item) => isVideoUrl(item.url))?.url;
 
   if (!isOpen) return null;
 

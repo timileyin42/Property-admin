@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
 import { ApiProperty } from "../../types/property";
 import { StatusBadge } from "../../components/StatusBadge";
-import { normalizeMediaUrl, isVideoUrl } from "../../util/normalizeMediaUrl";
+import { isVideoUrl } from "../../util/normalizeMediaUrl";
 import {
+  deleteAdminPropertiesBulk,
   deleteAdminProperty,
   fetchAdminProperties,
   PropertyStatusFilter,
 } from "../../api/admin.properties";
 import { UpdatePropertyModal } from "../../components/admincomponents/UpdatePropertyModal";
 import { getErrorMessage } from "../../util/getErrorMessage";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 const STATUS_TABS: Array<"ALL" | PropertyStatusFilter> = [
   "ALL",
@@ -27,6 +29,8 @@ const AdminProperties = () => {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const loadProperties = useCallback(async () => {
     setLoading(true);
@@ -94,6 +98,59 @@ const AdminProperties = () => {
   };
 
   const rows = useMemo(() => properties, [properties]);
+  const allMediaRefs = useMemo(
+    () =>
+      rows.flatMap((property) =>
+        [property.primary_image, ...(property.image_urls ?? [])].filter(Boolean) as string[]
+      ),
+    [rows]
+  );
+  const resolvedMedia = usePresignedMediaUrls(allMediaRefs);
+  const resolvedMap = useMemo(
+    () => new Map(resolvedMedia.map((item) => [item.raw, item.url])),
+    [resolvedMedia]
+  );
+
+  const allSelected = rows.length > 0 && rows.every((item) => selectedPropertyIds.includes(item.id));
+  const someSelected = rows.some((item) => selectedPropertyIds.includes(item.id)) && !allSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected;
+    }
+  }, [someSelected, allSelected]);
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedPropertyIds([]);
+      return;
+    }
+    setSelectedPropertyIds(rows.map((item) => item.id));
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedPropertyIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPropertyIds.length === 0) return;
+    try {
+      setIsDeleting(true);
+      const result = await deleteAdminPropertiesBulk(selectedPropertyIds);
+      setProperties((prev) => prev.filter((item) => !selectedPropertyIds.includes(item.id)));
+      setSelectedPropertyIds([]);
+      toast.success(`Deleted ${result.deleted_count} properties`);
+      if (result.missing_ids.length > 0) {
+        toast.error(`Missing properties: ${result.missing_ids.join(", ")}`);
+      }
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete properties"));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl p-6">
@@ -106,6 +163,16 @@ const AdminProperties = () => {
             View and update all uploaded properties
           </p>
         </div>
+        {selectedPropertyIds.length > 0 && (
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+            disabled={isDeleting}
+          >
+            Delete selected ({selectedPropertyIds.length})
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -133,6 +200,15 @@ const AdminProperties = () => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
               <tr>
+                <th className="text-left p-4">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all"
+                  />
+                </th>
                 <th className="text-left p-4">Property</th>
                 <th className="text-left p-4">Status</th>
                 <th className="text-left p-4">Location</th>
@@ -148,7 +224,7 @@ const AdminProperties = () => {
                   property.primary_image,
                   ...(property.image_urls ?? []),
                 ]
-                  .map((url) => normalizeMediaUrl(url))
+                  .map((url) => resolvedMap.get(url ?? "") ?? url)
                   .filter(Boolean) as string[];
                 const imageUrl = mediaUrls.find((url) => !isVideoUrl(url));
                 const videoUrl = mediaUrls.find((url) => isVideoUrl(url));
@@ -158,6 +234,14 @@ const AdminProperties = () => {
                     key={property.id}
                     className="border-b last:border-b-0"
                   >
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedPropertyIds.includes(property.id)}
+                        onChange={() => toggleSelect(property.id)}
+                        aria-label={`Select ${property.title}`}
+                      />
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-16 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">

@@ -5,8 +5,9 @@ import { deleteAdminUpdate, deleteAdminUpdatesBulk } from "../../api/admin.updat
 import type { UpdateItem } from "../../types/updates";
 import UpdateNewsModal from "../../components/admincomponents/UpdateNewsModal";
 import { UpdateDetailModal } from "../../components/admincomponents/UpdateDetailModal";
-import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
+import { isVideoUrl } from "../../util/normalizeMediaUrl";
 import { getErrorMessage } from "../../util/getErrorMessage";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 const AdminUpdates = () => {
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
@@ -109,6 +110,24 @@ const AdminUpdates = () => {
   };
 
   const rows = useMemo(() => updates, [updates]);
+  const allMediaRefs = useMemo(
+    () =>
+      rows.flatMap((update) =>
+        [
+          ...(update.media_files?.map((item) => item.url) ?? []),
+          ...(update.media_urls ?? []),
+          ...(update.image_urls ?? []),
+          update.image_url,
+          update.video_url,
+        ].filter(Boolean) as string[]
+      ),
+    [rows]
+  );
+  const resolvedMedia = usePresignedMediaUrls(allMediaRefs);
+  const resolvedMap = useMemo(
+    () => new Map(resolvedMedia.map((item) => [item.raw, item.url])),
+    [resolvedMedia]
+  );
 
   const allSelected = rows.length > 0 && rows.every((item) => selectedUpdateIds.includes(item.id));
   const someSelected = rows.some((item) => selectedUpdateIds.includes(item.id)) && !allSelected;
@@ -198,7 +217,7 @@ const AdminUpdates = () => {
                   update.video_url,
                 ].filter(Boolean) as string[];
                 const normalized = urls
-                  .map((url) => normalizeMediaUrl(url))
+                  .map((url) => resolvedMap.get(url) ?? url)
                   .filter(Boolean) as string[];
                 const imageUrl = normalized.find((url) => !isVideoUrl(url));
                 const videoUrl = normalized.find((url) => isVideoUrl(url));

@@ -9,7 +9,8 @@ import { fetchProperties } from "../../api/properties";
 import { ApiProperty } from "../../types/property";
 import { AdminUser } from "../../types/user";
 import { assignInvestmentSchema, AssignInvestmentValues } from "../../validators/assignInvestment.schema";
-import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
+import { isVideoUrl } from "../../util/normalizeMediaUrl";
+import { usePresignedMediaUrls } from "../../hooks/usePresignedMediaUrls";
 
 const AssignInvestment = () => {
   const [searchParams] = useSearchParams();
@@ -21,6 +22,19 @@ const AssignInvestment = () => {
   const [properties, setProperties] = useState<ApiProperty[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<ApiProperty | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const allMediaRefs = useMemo(
+    () =>
+      properties.flatMap((property) =>
+        [property.primary_image, ...(property.image_urls ?? [])].filter(Boolean) as string[]
+      ),
+    [properties]
+  );
+  const resolvedMedia = usePresignedMediaUrls(allMediaRefs);
+  const resolvedMap = useMemo(
+    () => new Map(resolvedMedia.map((item) => [item.raw, item.url])),
+    [resolvedMedia]
+  );
 
   const resolver: Resolver<AssignInvestmentValues> =
     zodResolver(assignInvestmentSchema) as Resolver<AssignInvestmentValues>;
@@ -64,19 +78,19 @@ const AssignInvestment = () => {
       selectedProperty.primary_image,
       ...(selectedProperty.image_urls ?? []),
     ]
-      .map((url) => normalizeMediaUrl(url))
+      .map((url) => resolvedMap.get(url ?? "") ?? url)
       .filter(Boolean)
       .find((url) => !isVideoUrl(url));
 
     return candidate ?? "";
-  }, [selectedProperty]);
+  }, [selectedProperty, resolvedMap]);
 
   const selectedMediaUrls = useMemo(() => {
     if (!selectedProperty) return [] as string[];
     return [selectedProperty.primary_image, ...(selectedProperty.image_urls ?? [])]
-      .map((url) => normalizeMediaUrl(url))
+      .map((url) => resolvedMap.get(url ?? "") ?? url)
       .filter(Boolean) as string[];
-  }, [selectedProperty]);
+  }, [selectedProperty, resolvedMap]);
 
   useEffect(() => {
     if (!selectedProperty) return;
@@ -134,7 +148,7 @@ const AssignInvestment = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {properties.map((property) => {
                 const mediaUrls = [property.primary_image, ...(property.image_urls ?? [])]
-                  .map((url) => normalizeMediaUrl(url))
+                  .map((url) => resolvedMap.get(url ?? "") ?? url)
                   .filter(Boolean) as string[];
                 const imageSrc = mediaUrls.find((url) => !isVideoUrl(url));
                 const videoSrc = mediaUrls.find((url) => isVideoUrl(url));

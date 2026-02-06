@@ -13,6 +13,24 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: [
+              "react",
+              "react-dom",
+              "react-router-dom",
+              "react-hook-form",
+              "zod",
+              "axios",
+              "react-hot-toast",
+              "react-icons",
+            ],
+          },
+        },
+      },
+    },
     server: {
       port,
       strictPort: true, // 👈 prevents auto-switching ports

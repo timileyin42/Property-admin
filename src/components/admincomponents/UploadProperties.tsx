@@ -7,11 +7,11 @@ import toast, { Toaster } from "react-hot-toast";
 import { FiUpload } from "react-icons/fi";
 
 import { api } from "../../api/axios";
+import { presignUpload } from "../../api/files";
 import {
   fetchAdminProperties,
   deleteAdminPropertiesBulk,
   deleteAdminProperty,
-  updateAdminProperty,
 } from "../../api/admin.properties";
 import { PropertyTable } from "../../components/PropertyTable";
 import type { ApiProperty } from "../../types/property";
@@ -33,8 +33,6 @@ const propertySchema = z.object({
   project_value: optionalNumber,
   total_fractions: optionalNumber,
   fraction_price: optionalNumber,
-  bedrooms: optionalNumber,
-  bathrooms: optionalNumber,
   area_sqft: optionalNumber,
   expected_roi: optionalNumber,
   is_off_plan: z.boolean().optional(),
@@ -43,15 +41,11 @@ const propertySchema = z.object({
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
 
-type UploadSignature = {
-  upload_url: string;
-  api_key: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-  resource_type: string;
-  allowed_formats?: string;
-  chunk_size?: number;
+type UploadProgressState = {
+  totalBytes: number;
+  uploadedBytes: number;
+  currentFileName: string | null;
+  fileProgress: Record<string, number>;
 };
 
 /* =======================
@@ -59,8 +53,7 @@ type UploadSignature = {
 ======================= */
 
 const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
-const CHUNK_SIZE = 6 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 1024 * 1024 * 1024;
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -78,6 +71,23 @@ const ALLOWED_TYPES = [
   "video/x-m4v",
 ];
 
+const getFileKey = (file: File) =>
+  `${file.name}-${file.size}-${file.lastModified}`;
+
+const buildInitialProgress = (selectedFiles: File[]): UploadProgressState => {
+  const fileProgress: Record<string, number> = {};
+  selectedFiles.forEach((file) => {
+    fileProgress[getFileKey(file)] = 0;
+  });
+
+  return {
+    totalBytes: selectedFiles.reduce((sum, file) => sum + file.size, 0),
+    uploadedBytes: 0,
+    currentFileName: null,
+    fileProgress,
+  };
+};
+
 /* =======================
    Component
 ======================= */
@@ -87,6 +97,7 @@ const AdminInvestmentsPage: React.FC = () => {
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>([]);
@@ -108,8 +119,6 @@ const AdminInvestmentsPage: React.FC = () => {
       project_value: undefined,
       total_fractions: undefined,
       fraction_price: undefined,
-      bedrooms: undefined,
-      bathrooms: undefined,
       area_sqft: undefined,
       expected_roi: undefined,
       is_off_plan: false,
@@ -166,116 +175,74 @@ const AdminInvestmentsPage: React.FC = () => {
   }, [previews]);
 
   /* =======================
-     Upload to Cloudinary
+     Upload to Backblaze B2
   ======================= */
 
-  const uploadImages = async (
-    propertyId?: number
-  ): Promise<string[]> => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("Unauthorized");
-    }
+  const uploadImages = async (): Promise<string[]> => {
+    const uploadedKeys: string[] = [];
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    const fileSizes = new Map<string, number>();
+    const fileUploadedBytes = new Map<string, number>();
 
-    const uploadedUrls: string[] = [];
+    files.forEach((file) => {
+      fileSizes.set(getFileKey(file), file.size);
+    });
 
-    const uploadVideoInChunks = async (
-      file: File,
-      sig: UploadSignature
-    ): Promise<string> => {
-      const totalSize = file.size;
-      let start = 0;
-      let end = Math.min(CHUNK_SIZE, totalSize);
-      const uploadId = `${file.name}-${Date.now()}`;
-      let secureUrl = "";
+    const updateProgress = (
+      fileKey: string,
+      fileName: string,
+      uploadedBytesForFile: number
+    ) => {
+      fileUploadedBytes.set(fileKey, uploadedBytesForFile);
 
-      while (start < totalSize) {
-        const chunk = file.slice(start, end);
-        const formData = new FormData();
-        formData.append("file", chunk);
-        formData.append("api_key", sig.api_key);
-        formData.append("timestamp", String(sig.timestamp));
-        formData.append("signature", sig.signature);
-        formData.append("folder", sig.folder);
-        formData.append("resource_type", sig.resource_type);
+      let uploadedBytesTotal = 0;
+      const nextFileProgress: Record<string, number> = {};
 
-        if (sig.allowed_formats) {
-          formData.append("allowed_formats", sig.allowed_formats);
-        }
+      fileSizes.forEach((size, key) => {
+        const uploaded = fileUploadedBytes.get(key) ?? 0;
+        uploadedBytesTotal += uploaded;
+        nextFileProgress[key] =
+          size > 0 ? Math.min(100, Math.round((uploaded / size) * 100)) : 0;
+      });
 
-        const uploadRes = await axios.post(sig.upload_url, formData, {
-          headers: {
-            "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
-            "X-Unique-Upload-Id": uploadId,
-          },
-        });
-
-        if (uploadRes.data?.secure_url) {
-          secureUrl = uploadRes.data.secure_url;
-        }
-
-        start = end;
-        end = Math.min(start + CHUNK_SIZE, totalSize);
-      }
-
-      if (!secureUrl) {
-        throw new Error("Cloudinary upload failed");
-      }
-
-      return secureUrl;
+      setUploadProgress({
+        totalBytes,
+        uploadedBytes: Math.min(uploadedBytesTotal, totalBytes),
+        currentFileName: fileName,
+        fileProgress: nextFileProgress,
+      });
     };
 
     for (const file of files) {
-      const resourceType = file.type.startsWith("video") ? "video" : "image";
-      const payload = {
-        resource_type: resourceType,
-        file_size_bytes: file.size,
-        ...(propertyId !== undefined && { property_id: propertyId }),
+      const fileKey = getFileKey(file);
+      const contentType = file.type || "application/octet-stream";
+      const { upload_url, file_key, upload_headers } = await presignUpload({
+        filename: file.name,
+        content_type: contentType,
+      });
+
+      const headers: Record<string, string> = {
+        ...upload_headers,
       };
 
-      // 1️⃣ Get upload signature
-      const { data: sig } = await api.post(
-        "/media/upload-signature",
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // 2️⃣ Upload to Cloudinary
-      const isVideo = file.type.startsWith("video");
-      const shouldChunk = isVideo && file.size > MAX_IMAGE_SIZE;
-
-      if (shouldChunk) {
-        const secureUrl = await uploadVideoInChunks(file, sig);
-        uploadedUrls.push(secureUrl);
-        continue;
+      if (!headers["Content-Type"] && !headers["content-type"]) {
+        headers["Content-Type"] = contentType;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("api_key", sig.api_key);
-      formData.append("timestamp", String(sig.timestamp));
-      formData.append("signature", sig.signature);
-      formData.append("folder", sig.folder);
-      formData.append("resource_type", sig.resource_type);
+      await axios.post(upload_url, file, {
+        headers,
+        onUploadProgress: (event) => {
+          if (event.total) {
+            updateProgress(fileKey, file.name, event.loaded);
+          }
+        },
+      });
 
-      if (sig.allowed_formats) {
-        formData.append("allowed_formats", sig.allowed_formats);
-      }
-
-      const uploadRes = await axios.post(sig.upload_url, formData);
-
-      if (!uploadRes.data?.secure_url) {
-        throw new Error("Cloudinary upload failed");
-      }
-
-      uploadedUrls.push(uploadRes.data.secure_url);
+      uploadedKeys.push(file_key);
+      updateProgress(fileKey, file.name, file.size);
     }
 
-    return uploadedUrls;
+    return uploadedKeys;
   };
 
   /* =======================
@@ -289,74 +256,31 @@ const AdminInvestmentsPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-
-    const uploadPromise = uploadImages();
+    setUploadProgress(buildInitialProgress(files));
 
     try {
+      const imageKeys = await uploadImages();
       const payload = {
         ...data,
         off_plan_duration_months: data.off_plan_duration_months ?? null,
         status: "AVAILABLE" as ApiProperty["status"],
-        image_urls: [] as string[],
-        primary_image: "",
+        image_urls: imageKeys,
+        primary_image: imageKeys[0] || "",
       };
+      const res = await api.post<ApiProperty>("/admin/properties", payload);
+      setProperties((prev) => [res.data, ...prev]);
+      toast.success("Property created successfully");
 
-      let res: { data: ApiProperty } | null = null;
-
-      try {
-        res = await api.post<ApiProperty>("/admin/properties", payload);
-      } catch (createError: unknown) {
-        // Fallback to blocking upload if server requires images on create
-        const imageUrls = await uploadPromise;
-        const retryPayload = {
-          ...data,
-          off_plan_duration_months: data.off_plan_duration_months ?? null,
-          status: "AVAILABLE" as ApiProperty["status"],
-          image_urls: imageUrls,
-          primary_image: imageUrls[0] || "",
-        };
-        res = await api.post<ApiProperty>("/admin/properties", retryPayload);
-      }
-
-      if (res) {
-        setProperties((prev) => [res!.data, ...prev]);
-        toast.success("Property created successfully");
-
-        uploadPromise
-          .then((imageUrls) => {
-            if (!imageUrls.length) return null;
-            return updateAdminProperty(res!.data.id, {
-              image_urls: imageUrls,
-              primary_image: imageUrls[0],
-            });
-          })
-          .then((updated) => {
-            if (!updated) return;
-            setProperties((prev) =>
-              prev.map((property) =>
-                property.id === updated.id ? updated : property
-              )
-            );
-          })
-          .catch((error) => {
-            console.error(error);
-            toast.error("Background media upload failed");
-          });
-
-        // Clear everything
-        reset();
-        setFiles([]);
-        previews.forEach((p) => URL.revokeObjectURL(p.url));
-      }
+      // Clear everything
+      reset();
+      setFiles([]);
+      previews.forEach((p) => URL.revokeObjectURL(p.url));
     } catch (err: unknown) {
       console.error(err);
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        toast.error("Please login as admin to upload media");
-        return;
-      }
       toast.error(getErrorMessage(err, "Failed to create property"));
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -504,6 +428,7 @@ const AdminInvestmentsPage: React.FC = () => {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2"
+              disabled={isSubmitting}
             >
               <FiUpload /> Upload
             </button>
@@ -541,6 +466,53 @@ const AdminInvestmentsPage: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {uploadProgress && (
+          <div className="col-span-2 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+            <div className="flex items-center justify-between text-sm text-blue-900">
+              <span className="font-semibold">Uploading media</span>
+              <span>
+                {uploadProgress.totalBytes > 0
+                  ? Math.round(
+                      (uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100
+                    )
+                  : 0}
+                %
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded bg-blue-100">
+              <div
+                className="h-full bg-blue-600 transition-all"
+                style={{
+                  width: `${
+                    uploadProgress.totalBytes > 0
+                      ? Math.round(
+                          (uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+            {uploadProgress.currentFileName && (
+              <p className="mt-2 text-xs text-blue-900/80 truncate">
+                Current: {uploadProgress.currentFileName}
+              </p>
+            )}
+            <div className="mt-3 space-y-1">
+              {files.map((file) => {
+                const key = getFileKey(file);
+                const percent = uploadProgress.fileProgress[key] ?? 0;
+                return (
+                  <div key={key} className="flex items-center justify-between text-xs text-blue-900/80">
+                    <span className="truncate">{file.name}</span>
+                    <span>{percent}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="col-span-2">
           <button

@@ -74,6 +74,12 @@ const ALLOWED_TYPES = [
 const getFileKey = (file: File) =>
   `${file.name}-${file.size}-${file.lastModified}`;
 
+const sanitizeFileName = (name: string) =>
+  name
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
+
 const buildInitialProgress = (selectedFiles: File[]): UploadProgressState => {
   const fileProgress: Record<string, number> = {};
   selectedFiles.forEach((file) => {
@@ -217,7 +223,7 @@ const AdminInvestmentsPage: React.FC = () => {
       const fileKey = getFileKey(file);
       const contentType = file.type || "application/octet-stream";
       const { upload_url, file_key, upload_headers } = await presignUpload({
-        filename: file.name,
+        filename: sanitizeFileName(file.name),
         content_type: contentType,
       });
 

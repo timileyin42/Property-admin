@@ -51,6 +51,12 @@ const isDirectUrl = (value: string) =>
   value.startsWith("data:") ||
   value.startsWith("//");
 
+const sanitizeFileName = (name: string) =>
+  name
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
+
 const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   isOpen,
   onClose,
@@ -171,7 +177,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     for (const file of files) {
       const contentType = file.type || "application/octet-stream";
       const { upload_url, file_key, upload_headers } = await presignUpload({
-        filename: file.name,
+        filename: sanitizeFileName(file.name),
         content_type: contentType,
       });
 

@@ -51,6 +51,12 @@ const toNumberOrUndefined = (value: string) => {
   return Number.isNaN(parsed) ? undefined : parsed;
 };
 
+const sanitizeFileName = (name: string) =>
+  name
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
+
 export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   isOpen,
   onClose,
@@ -122,7 +128,7 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       for (const file of validFiles) {
         const contentType = file.type || "application/octet-stream";
         const { upload_url, file_key, upload_headers } = await presignUpload({
-          filename: file.name,
+          filename: sanitizeFileName(file.name),
           content_type: contentType,
         });
 

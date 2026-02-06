@@ -7,8 +7,8 @@ import toast, { Toaster } from "react-hot-toast";
 import { FiUpload } from "react-icons/fi";
 
 import { api } from "../../api/axios";
-import { fetchProperties } from "../../api/properties";
 import {
+  fetchAdminProperties,
   deleteAdminPropertiesBulk,
   deleteAdminProperty,
   updateAdminProperty,
@@ -367,9 +367,8 @@ const AdminInvestmentsPage: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await fetchProperties();
-        // Type assertion to handle the type mismatch
-        setProperties(data as unknown as ApiProperty[]);
+        const data = await fetchAdminProperties({ page: 1, page_size: 50 });
+        setProperties(data.properties ?? []);
       } catch (error) {
         console.error("Failed to fetch properties:", error);
         toast.error("Failed to load properties");
@@ -389,8 +388,8 @@ const AdminInvestmentsPage: React.FC = () => {
   };
 
   const handleBulkDelete = () => {
-    if (selectedPropertyIds.length === 0) return;
-    setDeleteTargetIds(selectedPropertyIds);
+    if (properties.length === 0) return;
+    setDeleteTargetIds(properties.map((item) => item.id));
   };
 
   const handleConfirmDelete = async () => {

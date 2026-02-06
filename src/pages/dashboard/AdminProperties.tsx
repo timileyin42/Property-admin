@@ -5,6 +5,7 @@ import { ApiProperty } from "../../types/property";
 import { StatusBadge } from "../../components/StatusBadge";
 import { normalizeMediaUrl, isVideoUrl } from "../../util/normalizeMediaUrl";
 import {
+  deleteAdminProperty,
   fetchAdminProperties,
   PropertyStatusFilter,
 } from "../../api/admin.properties";
@@ -23,6 +24,9 @@ const AdminProperties = () => {
   const [activeStatus, setActiveStatus] = useState<"ALL" | PropertyStatusFilter>("ALL");
   const [selectedProperty, setSelectedProperty] = useState<ApiProperty | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadProperties = useCallback(async () => {
     setLoading(true);
@@ -58,6 +62,35 @@ const AdminProperties = () => {
     setProperties((prev) =>
       prev.map((item) => (item.id === updated.id ? updated : item))
     );
+  };
+
+  const handleDelete = (deletedId: number) => {
+    setProperties((prev) => prev.filter((item) => item.id !== deletedId));
+  };
+
+  const handleDeleteOpen = (propertyId: number) => {
+    setDeleteTargetId(propertyId);
+    setOpenMenuId(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteTargetId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetId) return;
+    try {
+      setIsDeleting(true);
+      await deleteAdminProperty(deleteTargetId);
+      handleDelete(deleteTargetId);
+      toast.success("Property deleted");
+      await loadProperties();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete property"));
+    } finally {
+      setIsDeleting(false);
+      setDeleteTargetId(null);
+    }
   };
 
   const rows = useMemo(() => properties, [properties]);
@@ -173,12 +206,39 @@ const AdminProperties = () => {
                         : "-"}
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleOpenModal(property)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        Edit
-                      </button>
+                      <div className="relative inline-block text-left">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMenuId((prev) => (prev === property.id ? null : property.id))
+                          }
+                          className="px-2 text-xl font-bold text-gray-700"
+                          aria-label="Property actions"
+                        >
+                          ⋮
+                        </button>
+                        {openMenuId === property.id && (
+                          <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleOpenModal(property);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteOpen(property.id)}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -193,7 +253,40 @@ const AdminProperties = () => {
         onClose={handleCloseModal}
         property={selectedProperty}
         onUpdate={handleUpdate}
+        onDelete={handleDelete}
       />
+
+      {deleteTargetId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">Delete property</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete this property? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { ApiProperty } from "../../types/property";
 import {
   PropertyStatusFilter,
   UpdateAdminPropertyPayload,
+  deleteAdminProperty,
   updateAdminProperty,
 } from "../../api/admin.properties";
 import { normalizeMediaUrl, isVideoUrl } from "../../util/normalizeMediaUrl";
@@ -16,6 +17,7 @@ interface UpdatePropertyModalProps {
   onClose: () => void;
   property: ApiProperty | null;
   onUpdate: (updatedProperty: ApiProperty) => void;
+  onDelete: (deletedId: number) => void;
 }
 
 const STATUS_OPTIONS: PropertyStatusFilter[] = [
@@ -64,6 +66,7 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   onClose,
   property,
   onUpdate,
+  onDelete,
 }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<PropertyStatusFilter>("AVAILABLE");
@@ -80,6 +83,8 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [projectValue, setProjectValue] = useState("");
   const [isOffPlan, setIsOffPlan] = useState(false);
   const [offPlanDurationMonths, setOffPlanDurationMonths] = useState("");
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -284,12 +289,37 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     }
   };
 
+  const handleDeleteOpen = () => {
+    setIsDeleteOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setIsDeleteOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!property) return;
+    try {
+      setIsDeleting(true);
+      await deleteAdminProperty(property.id);
+      toast.success("Property deleted");
+      onDelete(property.id);
+      onClose();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete property"));
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
+    }
+  };
+
   if (!isOpen || !property) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-100 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <>
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-100 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Update Property</h3>
             <button
@@ -552,23 +582,63 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
             <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"
+                onClick={handleDeleteOpen}
+                className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                disabled={loading || isDeleting}
+              >
+                Delete Property
+              </button>
+              <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={loading}
+                disabled={loading || isDeleting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isDeleting}
                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Updating..." : "Update Property"}
               </button>
             </div>
           </form>
+          </div>
         </div>
       </div>
-    </div>
+      {isDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900">Delete property</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Are you sure you want to delete this property? This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

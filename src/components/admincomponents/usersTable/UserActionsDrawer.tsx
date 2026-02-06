@@ -80,11 +80,6 @@ export const UserActionsDrawer = ({ user, onClose, onRefresh }: Props) => {
         <h3 className="font-semibold">{user.full_name}</h3>
 
         <Action
-          label="Make Investor"
-          onClick={() => handleRoleUpdate("INVESTOR")}
-          disabled={isSubmitting}
-        />
-        <Action
           label="Make Admin"
           onClick={() => handleRoleUpdate("ADMIN")}
           disabled={isSubmitting}

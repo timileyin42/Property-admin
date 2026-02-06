@@ -2,7 +2,7 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 
 interface ProtectedProps {
-  allowedRole?: "USER" | "INVESTOR" | "ADMIN" | "PROPERTY_OWNER";
+  allowedRole?: "INVESTOR" | "ADMIN" | "PROPERTY_OWNER";
 }
 
 export const ProtectedRoutes = ({ allowedRole }: ProtectedProps) => {

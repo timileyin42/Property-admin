@@ -12,9 +12,6 @@ import { FaRegEyeSlash } from "react-icons/fa";
 import auth_img from "../assets/auth.jpg";
 
 
-// type Role = "ADMIN" | "INVESTOR" | "USER";
-
-
 const loginSchema = z.object({
   username: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),

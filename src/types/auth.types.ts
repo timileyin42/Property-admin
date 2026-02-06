@@ -10,7 +10,7 @@ export interface SigninPayload {
 }
 
 
-export type Role = "ADMIN" | "INVESTOR" | "USER";
+export type Role = "ADMIN" | "INVESTOR";
 
 export interface User {
   id: string;

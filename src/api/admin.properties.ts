@@ -24,6 +24,8 @@ export interface UpdateAdminPropertyPayload {
   total_fractions?: number;
   fraction_price?: number;
   project_value?: number;
+  is_off_plan?: boolean;
+  off_plan_duration_months?: number | null;
 }
 
 export const fetchAdminProperties = async (params?: {

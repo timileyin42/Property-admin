@@ -31,14 +31,14 @@ const propertySchema = z.object({
   location: z.string().min(1, "Location is required"),
   description: z.string().min(1, "Description is required"),
   project_value: optionalNumber,
-  total_fractions: z.coerce
-    .number()
-    .min(1, "Total fractions is required"),
+  total_fractions: optionalNumber,
   fraction_price: optionalNumber,
   bedrooms: optionalNumber,
   bathrooms: optionalNumber,
   area_sqft: optionalNumber,
   expected_roi: optionalNumber,
+  is_off_plan: z.boolean().optional(),
+  off_plan_duration_months: optionalNumber,
 });
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
@@ -105,6 +105,8 @@ const AdminInvestmentsPage: React.FC = () => {
       bathrooms: undefined,
       area_sqft: undefined,
       expected_roi: undefined,
+      is_off_plan: false,
+      off_plan_duration_months: undefined,
     }
   });
 
@@ -286,6 +288,7 @@ const AdminInvestmentsPage: React.FC = () => {
     try {
       const payload = {
         ...data,
+        off_plan_duration_months: data.off_plan_duration_months ?? null,
         status: "AVAILABLE" as ApiProperty["status"],
         image_urls: [] as string[],
         primary_image: "",
@@ -300,6 +303,7 @@ const AdminInvestmentsPage: React.FC = () => {
         const imageUrls = await uploadPromise;
         const retryPayload = {
           ...data,
+          off_plan_duration_months: data.off_plan_duration_months ?? null,
           status: "AVAILABLE" as ApiProperty["status"],
           image_urls: imageUrls,
           primary_image: imageUrls[0] || "",
@@ -442,7 +446,11 @@ const AdminInvestmentsPage: React.FC = () => {
       >
         {/* We loop through the schema shape keys to generate inputs */}
         {(Object.keys(propertySchema.shape) as Array<keyof PropertyFormValues>).map((key) => {
-          const isNumber = key !== "title" && key !== "location" && key !== "description";
+          const isNumber =
+            key !== "title" &&
+            key !== "location" &&
+            key !== "description" &&
+            key !== "is_off_plan";
           
           return (
             <div key={key} className="flex flex-col gap-1">
@@ -454,11 +462,15 @@ const AdminInvestmentsPage: React.FC = () => {
                   {...register(key)}
                   className="bg-gray-100 rounded-lg p-2 min-h-[80px]"
                 />
+              ) : key === "is_off_plan" ? (
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" {...register(key)} />
+                  Off-plan property
+                </label>
               ) : (
                 <input
                   type={isNumber ? "number" : "text"}
                   step="any"
-                  required={key === "total_fractions"}
                   {...register(key)}
                   className="bg-gray-100 rounded-lg p-2"
                 />

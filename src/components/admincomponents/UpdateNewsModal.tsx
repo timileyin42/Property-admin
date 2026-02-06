@@ -59,6 +59,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [propertyId, setPropertyId] = useState("");
+  const [offPlanOnly, setOffPlanOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -69,6 +70,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
       setMediaUrls([]);
       setPendingFiles([]);
       setPropertyId("");
+      setOffPlanOnly(false);
       return;
     }
 
@@ -85,6 +87,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
       ])
     );
     setPropertyId(update.property_id ? String(update.property_id) : "");
+    setOffPlanOnly(Boolean(update.off_plan_only));
   }, [update]);
 
   const normalizedMedia = useMemo(
@@ -261,6 +264,7 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
         property_id: propertyId.trim() ? Number(propertyId) : undefined,
         title: title.trim(),
         content: content.trim(),
+        off_plan_only: offPlanOnly,
         media_files: media_files.length ? media_files : undefined,
         image_url: image,
         video_url: video,
@@ -339,6 +343,18 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
                 required
                 disabled={loading}
               />
+            </div>
+
+            <div>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={offPlanOnly}
+                  onChange={(e) => setOffPlanOnly(e.target.checked)}
+                  disabled={loading}
+                />
+                Off-plan only
+              </label>
             </div>
 
             <div>

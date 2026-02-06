@@ -7,6 +7,7 @@ export interface AdminUpdatePayload {
   property_id?: number | null;
   title: string;
   content: string;
+  off_plan_only?: boolean;
   media_files?: Array<{
     media_type: "image" | "video";
     url: string;

@@ -71,6 +71,8 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [totalFractions, setTotalFractions] = useState("");
   const [fractionPrice, setFractionPrice] = useState("");
   const [projectValue, setProjectValue] = useState("");
+  const [isOffPlan, setIsOffPlan] = useState(false);
+  const [offPlanDurationMonths, setOffPlanDurationMonths] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     setTotalFractions(property.total_fractions?.toString() ?? "");
     setFractionPrice(property.fraction_price?.toString() ?? "");
     setProjectValue(property.project_value?.toString() ?? "");
+    setIsOffPlan(Boolean(property.is_off_plan));
+    setOffPlanDurationMonths(property.off_plan_duration_months?.toString() ?? "");
   }, [property]);
 
   const normalizedMediaUrls = useMemo(
@@ -248,6 +252,7 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         description: description.trim(),
         status,
         image_urls: mediaUrls.length ? mediaUrls : undefined,
+        primary_image: mediaUrls[0] ?? "",
         bedrooms: toNumberOrUndefined(bedrooms),
         bathrooms: toNumberOrUndefined(bathrooms),
         area_sqft: toNumberOrUndefined(areaSqft),
@@ -255,6 +260,10 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         total_fractions: toNumberOrUndefined(totalFractions),
         fraction_price: toNumberOrUndefined(fractionPrice),
         project_value: toNumberOrUndefined(projectValue),
+        is_off_plan: isOffPlan,
+        off_plan_duration_months: isOffPlan
+          ? toNumberOrUndefined(offPlanDurationMonths) ?? null
+          : null,
       };
 
       const updated = await updateAdminProperty(property.id, payload);
@@ -467,6 +476,31 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                   onChange={(e) => setExpectedRoi(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   disabled={loading}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={isOffPlan}
+                    onChange={(e) => setIsOffPlan(e.target.checked)}
+                    disabled={loading}
+                  />
+                  Off-plan property
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Off-plan duration (months)
+                </label>
+                <input
+                  type="number"
+                  value={offPlanDurationMonths}
+                  onChange={(e) => setOffPlanDurationMonths(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  disabled={loading || !isOffPlan}
                 />
               </div>
               <div>

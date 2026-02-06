@@ -39,6 +39,9 @@ export interface ApiProperty {
   fraction_price: number;
   project_value: number;
 
+  is_off_plan?: boolean;
+  off_plan_duration_months?: number | null;
+
   fractions_sold: number;
   fractions_available: number;
   is_fractional: boolean;

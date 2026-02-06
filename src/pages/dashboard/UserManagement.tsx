@@ -26,7 +26,7 @@ const UserManagement = () => {
   // search and filter function
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<
-    "ALL" | "ADMIN" | "INVESTOR" | "PUBLIC"
+    "ALL" | "ADMIN" | "INVESTOR"
   >("ALL");
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -163,7 +163,6 @@ const filteredUsers = useMemo(() => {
     <option value="ALL">All Roles</option>
     <option value="ADMIN">Admin</option>
     <option value="INVESTOR">Investor</option>
-    <option value="PUBLIC">Public</option>
   </select>
 </div>
 

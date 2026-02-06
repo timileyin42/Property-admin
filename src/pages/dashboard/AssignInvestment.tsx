@@ -92,6 +92,16 @@ const AssignInvestment = () => {
       .filter(Boolean) as string[];
   }, [selectedProperty, resolvedMap]);
 
+  const fractionsSummary = useMemo(() => {
+    if (!selectedProperty) return null;
+    return {
+      total: selectedProperty.total_fractions ?? 0,
+      sold: selectedProperty.fractions_sold ?? 0,
+      available: selectedProperty.fractions_available ?? 0,
+      status: selectedProperty.status ?? "AVAILABLE",
+    };
+  }, [selectedProperty]);
+
   useEffect(() => {
     if (!selectedProperty) return;
     setValue("property_id", selectedProperty.id);
@@ -101,6 +111,13 @@ const AssignInvestment = () => {
   }, [selectedProperty, selectedImage, setValue]);
 
   const onSubmit = async (data: AssignInvestmentValues) => {
+    if (selectedProperty && fractionsSummary) {
+      if (fractionsSummary.total > 0 && data.fractions_owned > fractionsSummary.available) {
+        toast.error("Fractions owned cannot exceed available fractions");
+        return;
+      }
+    }
+
     try {
       await api.post("/admin/investments", {
         ...data,
@@ -205,6 +222,37 @@ const AssignInvestment = () => {
               className="bg-white border border-gray-200 rounded-xl p-6 space-y-4"
             >
               <h3 className="font-semibold text-blue-900">Investment Details</h3>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
+                <p className="font-semibold">Fractional allocation rules</p>
+                <p>
+                  Always provide <span className="font-medium">fractions owned</span> for fractional properties.
+                  The backend increments <span className="font-medium">fractions sold</span> and automatically marks
+                  a property as <span className="font-medium">SOLD</span> once sold reaches total fractions. If the
+                  value is missing or exceeds available fractions, the request fails.
+                </p>
+              </div>
+
+              {fractionsSummary && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span>Total fractions</span>
+                    <span className="font-semibold">{fractionsSummary.total}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Fractions sold</span>
+                    <span className="font-semibold">{fractionsSummary.sold}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Fractions available</span>
+                    <span className="font-semibold">{fractionsSummary.available}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Status</span>
+                    <span className="font-semibold">{fractionsSummary.status}</span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="text-sm text-gray-600">Fractions Owned</label>

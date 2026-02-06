@@ -34,8 +34,10 @@ export const PropertyRow = ({
       </td>
       <td className="py-3 font-medium ">{property.title}</td>
       <td className="text-gray-400">{property.location}</td>
-      <td className="text-gray-400">₦{property.project_value.toLocaleString()}</td>
-      <td className="text-gray-400">{property.total_fractions}</td>
+      <td className="text-gray-400">
+        ₦{property.project_value?.toLocaleString() ?? "-"}
+      </td>
+      <td className="text-gray-400">{property.total_fractions ?? "-"}</td>
       <td className="text-gray-400">{
         
       property.created_at 

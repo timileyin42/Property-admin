@@ -65,10 +65,17 @@ const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/heif-sequence",
+  "image/heic-sequence",
   "video/mp4",
   "video/webm",
   "video/ogg",
   "video/quicktime",
+  "video/3gpp",
+  "video/3gpp2",
+  "video/x-m4v",
 ];
 
 /* =======================

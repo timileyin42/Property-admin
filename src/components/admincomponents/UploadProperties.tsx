@@ -235,7 +235,7 @@ const AdminInvestmentsPage: React.FC = () => {
         headers["Content-Type"] = contentType;
       }
 
-      await axios.post(upload_url, file, {
+      await axios.put(upload_url, file, {
         headers,
         onUploadProgress: (event) => {
           if (event.total) {

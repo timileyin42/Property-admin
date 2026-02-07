@@ -140,7 +140,7 @@ export const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
           headers["Content-Type"] = contentType;
         }
 
-        await axios.post(upload_url, file, { headers });
+        await axios.put(upload_url, file, { headers });
 
         uploadedKeys.push(file_key);
       }

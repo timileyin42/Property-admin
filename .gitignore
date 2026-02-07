@@ -31,3 +31,4 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+cors.json

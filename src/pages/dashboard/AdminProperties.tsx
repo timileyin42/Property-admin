@@ -111,6 +111,21 @@ const AdminProperties = () => {
     [resolvedMedia]
   );
 
+  const resolveMediaUrl = (value?: string) => {
+    if (!value) return "";
+    const resolved = resolvedMap.get(value);
+    if (resolved) return resolved;
+    if (
+      value.startsWith("http") ||
+      value.startsWith("blob:") ||
+      value.startsWith("data:") ||
+      value.startsWith("//")
+    ) {
+      return value;
+    }
+    return "";
+  };
+
   const allSelected = rows.length > 0 && rows.every((item) => selectedPropertyIds.includes(item.id));
   const someSelected = rows.some((item) => selectedPropertyIds.includes(item.id)) && !allSelected;
 
@@ -224,7 +239,7 @@ const AdminProperties = () => {
                   property.primary_image,
                   ...(property.image_urls ?? []),
                 ]
-                  .map((url) => resolvedMap.get(url ?? "") ?? url)
+                  .map((url) => resolveMediaUrl(url ?? ""))
                   .filter(Boolean) as string[];
                 const imageUrl = mediaUrls.find((url) => !isVideoUrl(url));
                 const videoUrl = mediaUrls.find((url) => isVideoUrl(url));

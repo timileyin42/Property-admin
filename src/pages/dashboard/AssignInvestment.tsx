@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +36,21 @@ const AssignInvestment = () => {
     [resolvedMedia]
   );
 
+  const resolveMediaUrl = useCallback((value?: string) => {
+    if (!value) return "";
+    const resolved = resolvedMap.get(value);
+    if (resolved) return resolved;
+    if (
+      value.startsWith("http") ||
+      value.startsWith("blob:") ||
+      value.startsWith("data:") ||
+      value.startsWith("//")
+    ) {
+      return value;
+    }
+    return "";
+  }, [resolvedMap]);
+
   const resolver: Resolver<AssignInvestmentValues> =
     zodResolver(assignInvestmentSchema) as Resolver<AssignInvestmentValues>;
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<AssignInvestmentValues>({
@@ -62,6 +77,9 @@ const AssignInvestment = () => {
 
         setUser(userRes.data);
         setProperties(propertiesRes);
+        if (propertiesRes.length > 0) {
+          setSelectedProperty((prev) => prev ?? propertiesRes[0]);
+        }
       } catch (error) {
         console.error("Failed to load assign investment data:", error);
       } finally {
@@ -72,25 +90,24 @@ const AssignInvestment = () => {
     fetchData();
   }, [userId]);
 
-  const selectedImage = useMemo(() => {
+  const selectedImageKey = useMemo(() => {
     if (!selectedProperty) return "";
     const candidate = [
       selectedProperty.primary_image,
       ...(selectedProperty.image_urls ?? []),
     ]
-      .map((url) => resolvedMap.get(url ?? "") ?? url)
       .filter(Boolean)
       .find((url) => !isVideoUrl(url));
 
     return candidate ?? "";
-  }, [selectedProperty, resolvedMap]);
+  }, [selectedProperty]);
 
   const selectedMediaUrls = useMemo(() => {
     if (!selectedProperty) return [] as string[];
     return [selectedProperty.primary_image, ...(selectedProperty.image_urls ?? [])]
-      .map((url) => resolvedMap.get(url ?? "") ?? url)
+      .map((url) => resolveMediaUrl(url ?? ""))
       .filter(Boolean) as string[];
-  }, [selectedProperty, resolvedMap]);
+  }, [selectedProperty, resolveMediaUrl]);
 
   const fractionsSummary = useMemo(() => {
     if (!selectedProperty) return null;
@@ -105,10 +122,10 @@ const AssignInvestment = () => {
   useEffect(() => {
     if (!selectedProperty) return;
     setValue("property_id", selectedProperty.id);
-    setValue("image_url", selectedImage);
+    setValue("image_url", selectedImageKey);
     setValue("initial_value", selectedProperty.project_value);
     setValue("current_value", selectedProperty.project_value);
-  }, [selectedProperty, selectedImage, setValue]);
+  }, [selectedProperty, selectedImageKey, setValue]);
 
   const onSubmit = async (data: AssignInvestmentValues) => {
     if (selectedProperty && fractionsSummary) {
@@ -121,7 +138,7 @@ const AssignInvestment = () => {
     try {
       await api.post("/admin/investments", {
         ...data,
-        image_url: selectedImage,
+        image_url: selectedImageKey,
       });
       toast.success("Investment assigned successfully");
       navigate("/admindashboard/user_management");
@@ -165,7 +182,7 @@ const AssignInvestment = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {properties.map((property) => {
                 const mediaUrls = [property.primary_image, ...(property.image_urls ?? [])]
-                  .map((url) => resolvedMap.get(url ?? "") ?? url)
+                  .map((url) => resolveMediaUrl(url ?? ""))
                   .filter(Boolean) as string[];
                 const imageSrc = mediaUrls.find((url) => !isVideoUrl(url));
                 const videoSrc = mediaUrls.find((url) => isVideoUrl(url));

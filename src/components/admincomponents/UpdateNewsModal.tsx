@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import { presignDownload, presignUpload } from "../../api/files";
 import type { UpdateItem } from "../../types/updates";
+import type { ApiProperty } from "../../types/property";
+import { fetchAdminProperties } from "../../api/admin.properties";
 import { createAdminUpdate, updateAdminUpdate } from "../../api/admin.updates";
 import { isVideoUrl, normalizeMediaUrl } from "../../util/normalizeMediaUrl";
 import { getErrorMessage } from "../../util/getErrorMessage";
@@ -70,6 +72,8 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
   const [propertyId, setPropertyId] = useState("");
   const [offPlanOnly, setOffPlanOnly] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [properties, setProperties] = useState<ApiProperty[]>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -98,6 +102,17 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
     setPropertyId(update.property_id ? String(update.property_id) : "");
     setOffPlanOnly(Boolean(update.off_plan_only));
   }, [update]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setPropertiesLoading(true);
+    fetchAdminProperties({ page: 1, page_size: 200 })
+      .then((res) => setProperties(res.properties ?? []))
+      .catch((error: unknown) => {
+        toast.error(getErrorMessage(error, "Failed to load properties"));
+      })
+      .finally(() => setPropertiesLoading(false));
+  }, [isOpen]);
 
   const resolvedMedia = usePresignedMediaUrls(mediaUrls);
   const resolvedMap = useMemo(
@@ -204,6 +219,11 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
       return;
     }
 
+    if (offPlanOnly && !propertyId.trim()) {
+      toast.error("Property ID is required for off-plan updates");
+      return;
+    }
+
     setLoading(true);
     try {
       let combinedUrls = [...mediaUrls];
@@ -273,15 +293,24 @@ const UpdateNewsModal: React.FC<UpdateNewsModalProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Property ID (optional)
+                Property (required for off-plan updates)
               </label>
-              <input
+              <select
                 value={propertyId}
                 onChange={(e) => setPropertyId(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                type="number"
-                disabled={loading}
-              />
+                disabled={loading || propertiesLoading}
+              >
+                <option value="">No property selected</option>
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.title}
+                  </option>
+                ))}
+              </select>
+              {propertiesLoading && (
+                <p className="text-xs text-gray-500 mt-1">Loading properties...</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

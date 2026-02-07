@@ -26,9 +26,9 @@ export const presignUpload = async (payload: {
 export const presignDownload = async (payload: {
   file_key: string;
 }): Promise<PresignDownloadResponse> => {
-  const res = await api.post<PresignDownloadResponse>(
-    `${FILES_BASE_URL}/files/presign-download`,
-    payload
+  const encoded = encodeURIComponent(payload.file_key);
+  const res = await api.get<{ url?: string }>(
+    `${FILES_BASE_URL}/media/${encoded}`
   );
-  return res.data;
+  return { download_url: res.data?.url ?? "" };
 };

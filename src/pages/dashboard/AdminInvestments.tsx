@@ -3,16 +3,22 @@ import toast, { Toaster } from "react-hot-toast";
 import { getErrorMessage } from "../../util/getErrorMessage";
 
 import { fetchAdminInvestments } from "../../api/admin.investments";
+import { fetchAdminUsers } from "../../api/admin.users.api";
 import DashboardStats from "../../components/admincomponents/DashboardStats";
 import { UpdateValuationModal } from "../../components/admincomponents/UpdateValuationModal";
+import { ReduceFractionsModal } from "../../components/admincomponents/ReduceFractionsModal";
 import { Investment } from "../../types/investment";
+import { AdminUser } from "../../types/user";
 
 const AdminInvestments = () => {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
   const [isValuationModalOpen, setIsValuationModalOpen] = useState(false);
+  const [isReduceModalOpen, setIsReduceModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [usersById, setUsersById] = useState<Record<number, AdminUser>>({});
 
   const loadInvestments = async () => {
     setLoading(true);
@@ -30,6 +36,20 @@ const AdminInvestments = () => {
     loadInvestments();
   }, []);
 
+  useEffect(() => {
+    fetchAdminUsers({ page: 1, page_size: 500 })
+      .then((users) => {
+        const map: Record<number, AdminUser> = {};
+        users.forEach((user) => {
+          map[user.id] = user;
+        });
+        setUsersById(map);
+      })
+      .catch((error: unknown) => {
+        toast.error(getErrorMessage(error, "Failed to load users"));
+      });
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return investments;
@@ -37,13 +57,24 @@ const AdminInvestments = () => {
     return investments.filter((item) => {
       const property = item.property_title?.toLowerCase() ?? "";
       const location = item.property_location?.toLowerCase() ?? "";
-      return property.includes(q) || location.includes(q) || String(item.user_id).includes(q);
+      const userName = usersById[item.user_id]?.full_name?.toLowerCase() ?? "";
+      return (
+        property.includes(q) ||
+        location.includes(q) ||
+        userName.includes(q) ||
+        String(item.user_id).includes(q)
+      );
     });
-  }, [investments, search]);
+  }, [investments, search, usersById]);
 
   const handleOpenValuation = (investment: Investment) => {
     setSelectedInvestment(investment);
     setIsValuationModalOpen(true);
+  };
+
+  const handleOpenReduce = (investment: Investment) => {
+    setSelectedInvestment(investment);
+    setIsReduceModalOpen(true);
   };
 
   const handleValuationUpdate = (updatedInvestment: Investment) => {
@@ -97,7 +128,7 @@ const AdminInvestments = () => {
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
                     <th className="text-left p-4">Property</th>
-                    <th className="text-left p-4">User ID</th>
+                    <th className="text-left p-4">Investor</th>
                     <th className="text-right p-4">Fractions</th>
                     <th className="text-right p-4">Initial Value</th>
                     <th className="text-right p-4">Current Value</th>
@@ -116,7 +147,16 @@ const AdminInvestments = () => {
                           {investment.property_location ?? "-"}
                         </p>
                       </td>
-                      <td className="p-4 text-gray-600">{investment.user_id}</td>
+                      <td className="p-4 text-gray-600">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900">
+                            {usersById[investment.user_id]?.full_name ?? `User ${investment.user_id}`}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            ID {investment.user_id}
+                          </span>
+                        </div>
+                      </td>
                       <td className="p-4 text-right text-gray-600">
                         {investment.fractions_owned ?? "-"}
                       </td>
@@ -132,13 +172,44 @@ const AdminInvestments = () => {
                           : "-"}
                       </td>
                       <td className="p-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenValuation(investment)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          Update Valuation
-                        </button>
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenMenuId((prev) =>
+                                prev === investment.id ? null : investment.id
+                              )
+                            }
+                            className="px-2 text-xl font-bold text-gray-700"
+                            aria-label="Investment actions"
+                          >
+                            ⋮
+                          </button>
+                          {openMenuId === investment.id && (
+                            <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleOpenValuation(investment);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                              >
+                                Update Valuation
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleOpenReduce(investment);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-amber-700 hover:bg-gray-50"
+                              >
+                                Reduce Fractions
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -152,6 +223,12 @@ const AdminInvestments = () => {
       <UpdateValuationModal
         isOpen={isValuationModalOpen}
         onClose={() => setIsValuationModalOpen(false)}
+        investment={selectedInvestment}
+        onUpdate={handleValuationUpdate}
+      />
+      <ReduceFractionsModal
+        isOpen={isReduceModalOpen}
+        onClose={() => setIsReduceModalOpen(false)}
         investment={selectedInvestment}
         onUpdate={handleValuationUpdate}
       />

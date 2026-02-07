@@ -22,3 +22,14 @@ export const updateInvestmentValuation = async (
   });
   return res.data;
 };
+
+export const reduceInvestmentFractions = async (
+  investmentId: number,
+  fractionsToRemove: number
+) => {
+  const res = await api.patch(
+    `/admin/investments/${investmentId}/fractions/remove`,
+    { fractions_to_remove: fractionsToRemove }
+  );
+  return res.data;
+};
